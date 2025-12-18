@@ -9,6 +9,13 @@ export default function Home() {
   const { user, loading, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
 
+  // useEffect DEVE vir antes de qualquer return condicional
+  useEffect(() => {
+    if (isAuthenticated) {
+      setLocation("/dashboard");
+    }
+  }, [isAuthenticated, setLocation]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -18,12 +25,6 @@ export default function Home() {
       </div>
     );
   }
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      setLocation("/dashboard");
-    }
-  }, [isAuthenticated, setLocation]);
 
   if (isAuthenticated) {
     return null;
