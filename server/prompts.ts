@@ -143,15 +143,17 @@ Texto do slide: "${params.slideText}"
 Nicho: ${params.niche}
 ${params.style ? `Estilo adicional: ${params.style}` : ""}
 
+REGRA PRIMORDIAL: A imagem deve ser REAL e SEM NENHUM TEXTO. Não inclua letras, palavras, números ou qualquer elemento textual na imagem.
+
 A imagem deve:
+- Ser uma FOTOGRAFIA REAL, não ilustração ou arte digital
 - Ser visualmente impactante e profissional
 - Ter qualidade de revista/editorial
-- Combinar com o texto que será sobreposto
+- Combinar com o texto que será sobreposto posteriormente
 - Seguir o estilo visual de contas como @brandsdecoded__
 - Ter boa iluminação e composição
 - Ser adequada para formato 4:5 (1080x1350)
-
-Não inclua texto na imagem - apenas o visual de fundo.
+- NÃO CONTER ABSOLUTAMENTE NENHUM TEXTO, LETRA, PALAVRA OU NÚMERO
 `;
 
 // ===== PROMPT DE TRENDS =====
@@ -243,11 +245,15 @@ Contexto: ${params.context}
 Texto do slide: "${params.slideText}"
 ${params.type === "transformation" ? `Tipo: ${params.isBeforeImage ? "ANTES da transformação" : "DEPOIS da transformação"}` : ""}
 
+REGRA PRIMORDIAL: A imagem deve ser REAL e SEM NENHUM TEXTO. Não inclua letras, palavras, números ou qualquer elemento textual na imagem.
+
 A imagem deve:
-- Manter consistência com a descrição de referência
+- Ser uma FOTOGRAFIA REAL, não ilustração ou arte digital
+- Manter consistência com a descrição de referência (mesma pessoa, mesmas características físicas)
 - Parecer natural e autêntica
 - Ter qualidade profissional
 - Ser adequada para Instagram (4:5)
+- NÃO CONTER ABSOLUTAMENTE NENHUM TEXTO, LETRA, PALAVRA OU NÚMERO
 - ${params.type === "transformation" && params.isBeforeImage ? "Mostrar a pessoa ANTES da transformação" : ""}
 - ${params.type === "transformation" && !params.isBeforeImage ? "Mostrar a pessoa DEPOIS da transformação, com aparência melhorada" : ""}
 `;

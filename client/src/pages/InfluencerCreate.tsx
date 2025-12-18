@@ -6,7 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
-import { ArrowLeft, Loader2, Camera, FileText, Check, Upload, RefreshCw } from "lucide-react";
+import { ImageLightbox } from "@/components/ImageLightbox";
+import { ArrowLeft, Loader2, Camera, FileText, Check, Upload, RefreshCw, Maximize2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function InfluencerCreate() {
@@ -21,7 +22,19 @@ export default function InfluencerCreate() {
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleOpenLightbox = (photo: string) => {
+    setLightboxPhoto(photo);
+    setLightboxOpen(true);
+  };
+
+  const handleRegeneratePhoto = async () => {
+    setLightboxOpen(false);
+    generatePhotos.mutate({ name, niche, description, type });
+  };
 
   const generatePhotos = trpc.influencers.generateReferencePhotos.useMutation({
     onSuccess: (data) => {
@@ -184,27 +197,39 @@ export default function InfluencerCreate() {
 
           <div className="grid grid-cols-1 gap-4">
             {generatedPhotos.map((photo, index) => (
-              <button
-                key={index}
-                onClick={() => setSelectedPhoto(photo)}
-                className={`relative aspect-[4/5] rounded-xl overflow-hidden border-4 transition-all ${
-                  selectedPhoto === photo 
-                    ? "border-primary ring-4 ring-primary/20" 
-                    : "border-transparent hover:border-primary/50"
-                }`}
-              >
-                <img src={photo} alt={`Opção ${index + 1}`} className="w-full h-full object-cover" />
-                {selectedPhoto === photo && (
-                  <div className="absolute top-3 right-3 bg-primary text-primary-foreground rounded-full p-2">
-                    <Check className="w-5 h-5" />
+              <div key={index} className="relative">
+                <button
+                  onClick={() => setSelectedPhoto(photo)}
+                  className={`relative w-full aspect-[4/5] rounded-xl overflow-hidden border-4 transition-all ${
+                    selectedPhoto === photo 
+                      ? "border-primary ring-4 ring-primary/20" 
+                      : "border-transparent hover:border-primary/50"
+                  }`}
+                >
+                  <img src={photo} alt={`Opção ${index + 1}`} className="w-full h-full object-cover" />
+                  {selectedPhoto === photo && (
+                    <div className="absolute top-3 right-3 bg-primary text-primary-foreground rounded-full p-2">
+                      <Check className="w-5 h-5" />
+                    </div>
+                  )}
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4">
+                    <span className="text-white font-medium">Opção {index + 1}</span>
                   </div>
-                )}
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4">
-                  <span className="text-white font-medium">Opção {index + 1}</span>
-                </div>
-              </button>
+                </button>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="absolute top-3 left-3 bg-black/50 hover:bg-black/70"
+                  onClick={(e) => { e.stopPropagation(); handleOpenLightbox(photo); }}
+                >
+                  <Maximize2 className="w-4 h-4 text-white" />
+                </Button>
+              </div>
             ))}
           </div>
+          <p className="text-xs text-muted-foreground text-center">
+            💡 Clique no ícone de expandir para ver a foto em tela cheia
+          </p>
 
           <Button 
             variant="outline" 
@@ -228,6 +253,16 @@ export default function InfluencerCreate() {
             Criar com Esta Foto
           </Button>
         </div>
+        {/* Image Lightbox */}
+        <ImageLightbox
+          isOpen={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+          imageUrl={lightboxPhoto || ""}
+          prompt={`Foto profissional para Instagram de um influenciador digital.\nNome: ${name}\nNicho: ${niche}\nDescrição física: ${description}`}
+          title={`Foto de ${name}`}
+          onRegenerate={handleRegeneratePhoto}
+          showPrompt={true}
+        />
       </div>
     );
   }

@@ -104,3 +104,15 @@
 - [x] Virais ViralHog - funcionando (12 virais)
 - [x] Criação de projeto - funcionando
 - [x] Geração de conteúdo para projeto - funcionando
+
+## Regras Gerais para Imagens Geradas por IA
+- [x] Componente ImageLightbox: abre imagem em tela cheia ao clicar
+- [x] Botão Regenerar: gera nova imagem com mesmo prompt ou editando
+- [x] Botão Excluir: deleta a imagem
+- [x] Botão Baixar: download da imagem
+- [x] Salvar imagem no banco de referência correspondente
+- [x] Prompt com instrução "imagem real sem texto" (regra primordial)
+- [x] Mostrar prompt usado como orientação para upload no slide
+- [x] Integrar lightbox em ContentEdit
+- [x] Integrar lightbox em InfluencerContentEdit
+- [x] Integrar lightbox em InfluencerCreate (fotos de referência)

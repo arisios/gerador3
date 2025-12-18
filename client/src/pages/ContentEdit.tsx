@@ -8,8 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { trpc } from "@/lib/trpc";
 import SlideComposer, { SlideStyle } from "@/components/SlideComposer";
+import { ImageLightbox } from "@/components/ImageLightbox";
 import { downloadSlide, downloadAllSlides } from "@/lib/downloadSlide";
-import { ArrowLeft, Download, Image, Loader2, ChevronLeft, ChevronRight, Edit2, Check, X, Plus, Sparkles } from "lucide-react";
+import { ArrowLeft, Download, Image, Loader2, ChevronLeft, ChevronRight, Edit2, Check, X, Plus, Sparkles, Maximize2 } from "lucide-react";
 import { toast } from "sonner";
 
 const DEFAULT_STYLE: SlideStyle = {
@@ -47,6 +48,8 @@ export default function ContentEdit() {
   const [tempPrompt, setTempPrompt] = useState("");
   const [imageQuantity, setImageQuantity] = useState(1);
   const [showComposer, setShowComposer] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxImageIndex, setLightboxImageIndex] = useState<number | null>(null);
 
   const { data: content, isLoading, refetch } = trpc.content.get.useQuery({ id: contentId });
   const utils = trpc.useUtils();
@@ -95,6 +98,31 @@ export default function ContentEdit() {
     });
   };
 
+  const handleRegenerateImage = async (newPrompt: string) => {
+    if (!currentSlide) return;
+    await generateImage.mutateAsync({
+      slideId: currentSlide.id,
+      prompt: newPrompt,
+      quantity: 1,
+    });
+  };
+
+  const handleDeleteImage = async () => {
+    if (!currentSlide || lightboxImageIndex === null) return;
+    const bank = (currentSlide.imageBank as string[]) || [];
+    const newBank = bank.filter((_, i) => i !== lightboxImageIndex);
+    const newImageUrl = newBank.length > 0 ? newBank[0] : null;
+    
+    await updateSlide.mutateAsync({
+      id: currentSlide.id,
+      imageUrl: newImageUrl || undefined,
+      selectedImageIndex: 0,
+    });
+    // Note: imageBank update would need a separate mutation or schema change
+    setLightboxOpen(false);
+    setLightboxImageIndex(null);
+  };
+
   const handleSelectImage = (index: number) => {
     if (!currentSlide) return;
     const bank = (currentSlide.imageBank as string[]) || [];
@@ -103,6 +131,11 @@ export default function ContentEdit() {
       imageUrl: bank[index],
       selectedImageIndex: index,
     });
+  };
+
+  const handleImageClick = (imageUrl: string, index: number) => {
+    setLightboxImageIndex(index);
+    setLightboxOpen(true);
   };
 
   const handleDownload = async (withText: boolean) => {
@@ -158,6 +191,9 @@ export default function ContentEdit() {
   };
 
   const imageBank = (currentSlide?.imageBank as string[]) || [];
+  const lightboxImageUrl = lightboxImageIndex !== null && imageBank[lightboxImageIndex] 
+    ? imageBank[lightboxImageIndex] 
+    : currentSlide?.imageUrl || "";
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -213,10 +249,17 @@ export default function ContentEdit() {
             onDownload={handleDownload}
           />
         ) : (
-          <Card className="aspect-[4/5] relative overflow-hidden">
+          <Card className="aspect-[4/5] relative overflow-hidden group cursor-pointer" onClick={() => currentSlide?.imageUrl && setLightboxOpen(true)}>
             <CardContent className="p-0 h-full">
               {currentSlide?.imageUrl ? (
-                <img src={currentSlide.imageUrl} alt="" className="w-full h-full object-cover" />
+                <>
+                  <img src={currentSlide.imageUrl} alt="" className="w-full h-full object-cover" />
+                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button size="icon" variant="secondary" className="bg-black/50 hover:bg-black/70">
+                      <Maximize2 className="w-4 h-4 text-white" />
+                    </Button>
+                  </div>
+                </>
               ) : (
                 <div className="w-full h-full bg-gradient-to-b from-primary/20 to-background flex items-center justify-center">
                   <Image className="w-16 h-16 text-muted-foreground" />
@@ -225,7 +268,7 @@ export default function ContentEdit() {
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-6">
                 {editingText ? (
-                  <div className="space-y-2">
+                  <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
                     <Textarea
                       value={slideText}
                       onChange={(e) => setSlideText(e.target.value)}
@@ -244,7 +287,7 @@ export default function ContentEdit() {
                 ) : (
                   <div className="text-white">
                     <p className="text-lg font-bold leading-tight">{currentSlide?.text || "Sem texto"}</p>
-                    <Button size="sm" variant="ghost" className="mt-2 text-white/80" onClick={() => setEditingText(true)}>
+                    <Button size="sm" variant="ghost" className="mt-2 text-white/80" onClick={(e) => { e.stopPropagation(); setEditingText(true); }}>
                       <Edit2 className="w-4 h-4 mr-1" /> Editar
                     </Button>
                   </div>
@@ -294,13 +337,16 @@ export default function ContentEdit() {
               </SheetHeader>
               <div className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <Label>Prompt</Label>
+                  <Label>Prompt (orientação para a imagem)</Label>
                   <Textarea
                     value={tempPrompt || currentSlide?.imagePrompt || ""}
                     onChange={(e) => setTempPrompt(e.target.value)}
                     placeholder="Descreva a imagem que deseja..."
                     rows={4}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    💡 O prompt serve como orientação. Imagens serão geradas sem texto.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label>Quantidade</Label>
@@ -339,6 +385,7 @@ export default function ContentEdit() {
           <Card>
             <CardContent className="p-4">
               <Label className="text-sm font-medium mb-3 block">Banco de Imagens ({imageBank.length})</Label>
+              <p className="text-xs text-muted-foreground mb-3">Clique em uma imagem para abrir em tela cheia</p>
               <div className="grid grid-cols-4 gap-2">
                 {imageBank.map((url: string, index: number) => (
                   <button
@@ -348,7 +395,8 @@ export default function ContentEdit() {
                         ? "border-primary"
                         : "border-transparent hover:border-primary/50"
                     }`}
-                    onClick={() => handleSelectImage(index)}
+                    onClick={() => handleImageClick(url, index)}
+                    onDoubleClick={() => handleSelectImage(index)}
                   >
                     <img src={url} alt="" className="w-full h-full object-cover" />
                     {currentSlide?.selectedImageIndex === index && (
@@ -356,9 +404,13 @@ export default function ContentEdit() {
                         <Check className="w-6 h-6 text-primary" />
                       </div>
                     )}
+                    <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Maximize2 className="w-3 h-3 text-white drop-shadow" />
+                    </div>
                   </button>
                 ))}
               </div>
+              <p className="text-xs text-muted-foreground mt-2">Duplo clique para selecionar como imagem principal</p>
             </CardContent>
           </Card>
         )}
@@ -382,6 +434,17 @@ export default function ContentEdit() {
           ))}
         </div>
       </main>
+
+      {/* Image Lightbox */}
+      <ImageLightbox
+        isOpen={lightboxOpen}
+        onClose={() => { setLightboxOpen(false); setLightboxImageIndex(null); }}
+        imageUrl={lightboxImageUrl}
+        prompt={currentSlide?.imagePrompt || ""}
+        title={`Slide ${currentSlideIndex + 1}`}
+        onRegenerate={handleRegenerateImage}
+        onDelete={lightboxImageIndex !== null ? handleDeleteImage : undefined}
+      />
     </div>
   );
 }

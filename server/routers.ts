@@ -382,10 +382,12 @@ export const appRouter = router({
       }))
       .mutation(async ({ input }) => {
         const imageUrls: string[] = [];
+        const basePrompt = input.prompt || "Professional Instagram image, high quality, editorial style";
+        const fullPrompt = `${basePrompt}\n\nREGRA PRIMORDIAL: A imagem deve ser REAL e SEM NENHUM TEXTO. Não inclua letras, palavras, números ou qualquer elemento textual na imagem. Deve ser uma FOTOGRAFIA REAL, não ilustração.`;
         
         for (let i = 0; i < input.quantity; i++) {
           const result = await generateImage({
-            prompt: input.prompt || "Professional Instagram image, high quality, editorial style",
+            prompt: fullPrompt,
           });
           if (result.url) {
             imageUrls.push(result.url);
@@ -437,13 +439,17 @@ Nome: ${input.name}
 Nicho: ${input.niche}
 Descrição física: ${input.description}
 
+REGRA PRIMORDIAL: A imagem deve ser REAL e SEM NENHUM TEXTO. Não inclua letras, palavras, números ou qualquer elemento textual na imagem.
+
 A foto deve:
+- Ser uma FOTOGRAFIA REAL, não ilustração ou arte digital
 - Parecer natural e autêntica
 - Ter qualidade profissional de fotografia
 - Mostrar a pessoa de forma atraente e confiável
 - Ser adequada para perfil de Instagram
 - Formato retrato 4:5
-- Iluminação natural e ambiente agradável`;
+- Iluminação natural e ambiente agradável
+- NÃO CONTER ABSOLUTAMENTE NENHUM TEXTO, LETRA, PALAVRA OU NÚMERO`;
 
         const photos: string[] = [];
         for (let i = 0; i < 3; i++) {
@@ -616,12 +622,16 @@ Nicho: ${influencer.niche || "lifestyle"}
 Contexto do slide: ${input.slideText}
 ${input.context ? `Contexto adicional: ${input.context}` : ""}
 
+REGRA PRIMORDIAL: A imagem deve ser REAL e SEM NENHUM TEXTO. Não inclua letras, palavras, números ou qualquer elemento textual na imagem.
+
 A foto deve:
-- Manter a MESMA pessoa da imagem de referência
+- Ser uma FOTOGRAFIA REAL, não ilustração ou arte digital
+- Manter a MESMA pessoa da imagem de referência (mesmas características físicas)
 - Parecer natural e autêntica
 - Ter qualidade profissional
 - Ser adequada para Instagram (4:5)
-- Combinar com o contexto do conteúdo`;
+- Combinar com o contexto do conteúdo
+- NÃO CONTER ABSOLUTAMENTE NENHUM TEXTO, LETRA, PALAVRA OU NÚMERO`;
 
         const result = await generateImage({
           prompt,
@@ -661,11 +671,15 @@ A foto deve:
 Nicho: ${influencer.niche || "lifestyle"}
 Contexto do slide: ${slide.text}
 
+REGRA PRIMORDIAL: A imagem deve ser REAL e SEM NENHUM TEXTO. Não inclua letras, palavras, números ou qualquer elemento textual na imagem.
+
 A foto deve:
-- Manter a MESMA pessoa da imagem de referência
+- Ser uma FOTOGRAFIA REAL, não ilustração ou arte digital
+- Manter a MESMA pessoa da imagem de referência (mesmas características físicas)
 - Parecer natural e autêntica
 - Ter qualidade profissional
-- Ser adequada para Instagram (4:5)`;
+- Ser adequada para Instagram (4:5)
+- NÃO CONTER ABSOLUTAMENTE NENHUM TEXTO, LETRA, PALAVRA OU NÚMERO`;
 
           try {
             const result = await generateImage({

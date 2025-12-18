@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
-import { ArrowLeft, Download, Image, Loader2, ChevronLeft, ChevronRight, Edit2, Check, X, Sparkles, ImagePlus } from "lucide-react";
+import { ArrowLeft, Download, Image, Loader2, ChevronLeft, ChevronRight, Edit2, Check, X, Sparkles, ImagePlus, Maximize2 } from "lucide-react";
 import { toast } from "sonner";
 import { downloadSlide } from "@/lib/downloadSlide";
+import { ImageLightbox } from "@/components/ImageLightbox";
 import type { SlideStyle } from "@/components/SlideComposer";
 
 export default function InfluencerContentEdit() {
@@ -19,6 +20,7 @@ export default function InfluencerContentEdit() {
   const [slideText, setSlideText] = useState("");
   const [generatingImage, setGeneratingImage] = useState<number | null>(null);
   const [generatingAll, setGeneratingAll] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const { data: content, isLoading, refetch } = trpc.influencers.getContent.useQuery({ id: cId });
   const { data: influencer } = trpc.influencers.get.useQuery({ id: influencerId });
@@ -73,6 +75,36 @@ export default function InfluencerContentEdit() {
       influencerId,
       slideText: text,
     });
+  };
+
+  const handleRegenerateFromLightbox = async (newPrompt: string) => {
+    const slide = slides[currentSlide];
+    if (!slide || !influencer?.referenceImageUrl) return;
+    
+    setGeneratingImage(slide.id);
+    setLightboxOpen(false);
+    
+    try {
+      await generateSlideImage.mutateAsync({
+        slideId: slide.id,
+        influencerId,
+        slideText: newPrompt || slide.text || "",
+        context: newPrompt,
+      });
+    } catch (e) {
+      // Error already handled by mutation
+    }
+  };
+
+  const handleDeleteImage = async () => {
+    const slide = slides[currentSlide];
+    if (!slide) return;
+    
+    await updateSlide.mutateAsync({
+      id: slide.id,
+      imageUrl: undefined,
+    });
+    setLightboxOpen(false);
   };
 
   const handleGenerateAllImages = () => {
@@ -142,6 +174,16 @@ export default function InfluencerContentEdit() {
   const slide = slides[currentSlide];
   const hasReferenceImage = !!influencer?.referenceImageUrl;
 
+  // Gerar o prompt baseado no contexto do slide
+  const getSlidePrompt = () => {
+    if (!slide) return "";
+    return `Foto profissional para Instagram de um influenciador digital.
+Nicho: ${influencer?.niche || "lifestyle"}
+Contexto do slide: ${slide.text}
+
+A foto deve manter a MESMA pessoa da imagem de referência.`;
+  };
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
@@ -199,17 +241,27 @@ export default function InfluencerContentEdit() {
           </div>
         )}
 
-        <Card className="aspect-[4/5] relative overflow-hidden">
+        <Card 
+          className="aspect-[4/5] relative overflow-hidden group cursor-pointer" 
+          onClick={() => slide?.imageUrl && setLightboxOpen(true)}
+        >
           <CardContent className="p-0 h-full">
             {slide?.imageUrl ? (
-              <img src={slide.imageUrl} alt="" className="w-full h-full object-cover" />
+              <>
+                <img src={slide.imageUrl} alt="" className="w-full h-full object-cover" />
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button size="icon" variant="secondary" className="bg-black/50 hover:bg-black/70">
+                    <Maximize2 className="w-4 h-4 text-white" />
+                  </Button>
+                </div>
+              </>
             ) : (
               <div className="w-full h-full bg-gradient-to-b from-primary/20 to-background flex flex-col items-center justify-center gap-4">
                 <Image className="w-16 h-16 text-muted-foreground" />
                 {hasReferenceImage && (
                   <Button 
                     variant="secondary"
-                    onClick={() => slide && handleGenerateImage(slide.id, slide.text || "")}
+                    onClick={(e) => { e.stopPropagation(); slide && handleGenerateImage(slide.id, slide.text || ""); }}
                     disabled={generatingImage === slide?.id}
                   >
                     {generatingImage === slide?.id ? (
@@ -225,7 +277,7 @@ export default function InfluencerContentEdit() {
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
             <div className="absolute bottom-0 left-0 right-0 p-6">
               {editingText ? (
-                <div className="space-y-2">
+                <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
                   <Textarea value={slideText} onChange={(e) => setSlideText(e.target.value)} className="bg-black/50 border-white/20 text-white" rows={4} />
                   <div className="flex gap-2">
                     <Button size="sm" onClick={() => { if (slide) updateSlide.mutate({ id: slide.id, text: slideText }); }} disabled={updateSlide.isPending}>
@@ -238,7 +290,7 @@ export default function InfluencerContentEdit() {
                 <div className="text-white">
                   <p className="text-lg font-bold leading-tight">{slide?.text || "Sem texto"}</p>
                   <div className="flex gap-2 mt-2">
-                    <Button size="sm" variant="ghost" className="text-white/80" onClick={() => setEditingText(true)}>
+                    <Button size="sm" variant="ghost" className="text-white/80" onClick={(e) => { e.stopPropagation(); setEditingText(true); }}>
                       <Edit2 className="w-4 h-4 mr-1" /> Editar
                     </Button>
                     {slide?.imageUrl && hasReferenceImage && (
@@ -246,7 +298,7 @@ export default function InfluencerContentEdit() {
                         size="sm" 
                         variant="ghost" 
                         className="text-white/80"
-                        onClick={() => slide && handleGenerateImage(slide.id, slide.text || "")}
+                        onClick={(e) => { e.stopPropagation(); slide && handleGenerateImage(slide.id, slide.text || ""); }}
                         disabled={generatingImage === slide?.id}
                       >
                         {generatingImage === slide?.id ? (
@@ -263,6 +315,10 @@ export default function InfluencerContentEdit() {
             </div>
           </CardContent>
         </Card>
+
+        <p className="text-xs text-muted-foreground text-center">
+          💡 Clique na imagem para abrir em tela cheia, regenerar ou baixar
+        </p>
 
         <div className="flex items-center justify-between">
           <Button variant="outline" size="icon" disabled={currentSlide === 0} onClick={() => setCurrentSlide(currentSlide - 1)}><ChevronLeft className="w-4 h-4" /></Button>
@@ -303,6 +359,17 @@ export default function InfluencerContentEdit() {
           </Button>
         </div>
       </main>
+
+      {/* Image Lightbox */}
+      <ImageLightbox
+        isOpen={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+        imageUrl={slide?.imageUrl || ""}
+        prompt={getSlidePrompt()}
+        title={`Slide ${currentSlide + 1} - ${content.title || "Conteúdo"}`}
+        onRegenerate={hasReferenceImage ? handleRegenerateFromLightbox : undefined}
+        onDelete={handleDeleteImage}
+      />
     </div>
   );
 }
