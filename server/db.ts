@@ -98,6 +98,24 @@ export async function deleteProject(id: number): Promise<void> {
   await db.delete(projects).where(eq(projects.id, id));
 }
 
+export async function updateProjectBrandKit(id: number, data: {
+  logoUrl?: string;
+  colorPaletteId?: string;
+  customColors?: { background?: string; text?: string; accent?: string };
+  defaultTemplateId?: string;
+}): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  const updateData: Record<string, unknown> = {};
+  if (data.logoUrl !== undefined) updateData.logoUrl = data.logoUrl;
+  if (data.colorPaletteId !== undefined) updateData.colorPaletteId = data.colorPaletteId;
+  if (data.customColors !== undefined) updateData.customColors = data.customColors;
+  if (data.defaultTemplateId !== undefined) updateData.defaultTemplateId = data.defaultTemplateId;
+  if (Object.keys(updateData).length > 0) {
+    await db.update(projects).set(updateData).where(eq(projects.id, id));
+  }
+}
+
 // ===== IDEAL CLIENTS FUNCTIONS =====
 export async function createIdealClients(projectId: number, clients: { name: string; description?: string; demographics?: unknown; psychographics?: unknown }[]): Promise<void> {
   const db = await getDb();

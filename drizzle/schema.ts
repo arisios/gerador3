@@ -23,6 +23,11 @@ export const projects = mysqlTable("projects", {
   sourceUrl: text("sourceUrl"),
   sourceDescription: text("sourceDescription"),
   analysis: json("analysis"),
+  // Kit de Marca
+  logoUrl: text("logoUrl"),
+  colorPaletteId: varchar("colorPaletteId", { length: 50 }),
+  customColors: json("customColors"),
+  defaultTemplateId: varchar("defaultTemplateId", { length: 50 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -80,6 +85,11 @@ export const slides = mysqlTable("slides", {
   imagePrompt: text("imagePrompt"),
   imageBank: json("imageBank"),
   selectedImageIndex: int("selectedImageIndex").default(0),
+  // Template visual completo
+  designTemplateId: varchar("designTemplateId", { length: 50 }),
+  colorPaletteId: varchar("colorPaletteId", { length: 50 }),
+  customColors: json("customColors"),
+  renderedImageUrl: text("renderedImageUrl"),
   visualTemplate: varchar("visualTemplate", { length: 50 }),
   style: json("style"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

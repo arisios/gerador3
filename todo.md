@@ -191,3 +191,12 @@
 - [x] Opção "Automático" no seletor de templates
 - [x] Filtro por categoria de template
 - [x] Botão "Ver mais" para expandir lista de templates
+
+## Templates Visuais Completos (18/12/2024)
+- [x] Criar 20+ templates com layouts profissionais completos (24 templates)
+- [x] Layouts variados: split horizontal, split vertical, card, full bleed, minimal, bold, editorial
+- [x] Design diagramado com posicionamento fixo de texto
+- [x] Sistema de paleta de cores customizável (12 paletas)
+- [x] Kit de marca: upload de logo para incluir nos templates
+- [x] Download renderizado em PNG/JPG com template aplicado
+- [x] Template automático varia entre slides do carrossel (IA escolhe templates diferentes)

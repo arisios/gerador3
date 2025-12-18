@@ -28,6 +28,41 @@ Responda APENAS com um JSON:
 Cores disponíveis: neon-green, neon-yellow, neon-pink, neon-blue, neon-orange, neon-red, white, gold, neon-purple, neon-cyan
 `;
 
+// ===== PROMPT DE SELEÇÃO AUTOMÁTICA DE TEMPLATES VARIADOS PARA CARROSSEL =====
+export const selectVariedTemplatesPrompt = (slides: { order: number; text: string }[], templates: string, palettes: string) => `
+Você é um especialista em design de carrosséis para Instagram no estilo @brandsdecoded__.
+
+Você recebeu um carrossel com ${slides.length} slides. Sua tarefa é escolher templates DIFERENTES e VARIADOS para cada slide, criando uma experiência visual dinâmica.
+
+SLIDES DO CARROSSEL:
+${slides.map(s => `Slide ${s.order}: "${s.text}"`).join('\n')}
+
+TEMPLATES DISPONÍVEIS:
+${templates}
+
+PALETAS DE CORES:
+${palettes}
+
+REGRAS IMPORTANTES:
+1. NÃO repita o mesmo template em slides consecutivos
+2. Varie os layouts (split, card, fullbleed, minimal, bold)
+3. Mantenha coerência visual usando a mesma paleta de cores
+4. O primeiro slide (capa) deve ser impactante - use templates bold ou fullbleed
+5. O último slide (CTA) deve ser limpo - use templates minimal ou card
+6. Slides com dados/números: use templates com mais espaço para texto
+7. Slides com histórias/emoção: use templates fullbleed com imagem forte
+
+Responda APENAS com um JSON:
+{
+  "paletteId": "id-da-paleta-escolhida",
+  "slides": [
+    { "order": 1, "templateId": "id-template", "reason": "breve justificativa" },
+    { "order": 2, "templateId": "id-template", "reason": "breve justificativa" },
+    ...
+  ]
+}
+`;
+
 // ===== PROMPT DE ANÁLISE DE PROJETO =====
 export const analyzeProjectPrompt = (source: string, sourceType: string) => `
 Analise a seguinte fonte e extraia informações relevantes para criação de conteúdo para redes sociais.

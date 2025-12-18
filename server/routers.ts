@@ -10,6 +10,7 @@ import * as db from "./db";
 import * as prompts from "./prompts";
 import { carouselTemplates, imageTemplates, videoTemplates, softSellTemplates, hookTypes, copyFormulas } from "@shared/templates";
 import { visualTemplates, accentColors, stylePresets } from "@shared/visualTemplates";
+import { designTemplates, colorPalettes } from "@shared/designTemplates";
 import { nanoid } from "nanoid";
 import { storagePut } from "./storage";
 
@@ -61,6 +62,10 @@ export const appRouter = router({
     getVisualTemplates: publicProcedure.query(() => visualTemplates),
     getAccentColors: publicProcedure.query(() => accentColors),
     
+    // Obter templates de design completos
+    getDesignTemplates: publicProcedure.query(() => designTemplates),
+    getColorPalettes: publicProcedure.query(() => colorPalettes),
+
     // Seleção automática de template com IA
     selectAutoTemplate: protectedProcedure
       .input(z.object({
@@ -113,6 +118,99 @@ export const appRouter = router({
         }
       }),
     getStylePresets: publicProcedure.query(() => stylePresets),
+
+    // Seleção automática de templates VARIADOS para carrossel inteiro
+    selectVariedTemplates: protectedProcedure
+      .input(z.object({
+        contentId: z.number(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const content = await db.getContentById(input.contentId);
+        if (!content || content.userId !== ctx.user.id) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+
+        const slides = await db.getSlidesByContent(input.contentId);
+        if (slides.length === 0) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Nenhum slide encontrado" });
+        }
+
+        // Preparar dados para o prompt
+        const slidesData = slides.map(s => ({
+          order: s.order,
+          text: s.text || ""
+        }));
+
+        const templatesList = designTemplates.map(t => 
+          `- ${t.id}: ${t.name} (${t.category}) - ${t.description}`
+        ).join('\n');
+
+        const palettesList = colorPalettes.map(p => 
+          `- ${p.id}: ${p.name}`
+        ).join('\n');
+
+        const response = await invokeLLM({
+          messages: [
+            { role: "user", content: prompts.selectVariedTemplatesPrompt(slidesData, templatesList, palettesList) }
+          ],
+        });
+
+        const rawContent = response.choices[0]?.message?.content;
+        const contentStr = typeof rawContent === 'string' ? rawContent : '';
+
+        try {
+          const jsonMatch = contentStr.match(/\{[\s\S]*\}/);
+          if (!jsonMatch) {
+            throw new Error("JSON não encontrado");
+          }
+
+          const result = JSON.parse(jsonMatch[0]);
+          const paletteId = colorPalettes.find(p => p.id === result.paletteId)?.id || 'dark-neon';
+
+          // Atualizar cada slide com seu template
+          const updates: { slideId: number; templateId: string; reason: string }[] = [];
+          
+          for (const slideResult of result.slides || []) {
+            const slide = slides.find(s => s.order === slideResult.order);
+            if (slide) {
+              const validTemplate = designTemplates.find(t => t.id === slideResult.templateId);
+              const templateId = validTemplate ? slideResult.templateId : 'split-top';
+              
+              await db.updateSlide(slide.id, {
+                designTemplateId: templateId,
+                colorPaletteId: paletteId,
+              });
+              
+              updates.push({
+                slideId: slide.id,
+                templateId,
+                reason: slideResult.reason || 'Selecionado automaticamente'
+              });
+            }
+          }
+
+          return { paletteId, updates };
+        } catch (e) {
+          // Fallback: distribuir templates variados manualmente
+          const fallbackTemplates = ['split-top', 'fullbleed-dark', 'card-border', 'minimal-left', 'bold-center', 'split-left'];
+          const updates: { slideId: number; templateId: string; reason: string }[] = [];
+          
+          for (let i = 0; i < slides.length; i++) {
+            const templateId = fallbackTemplates[i % fallbackTemplates.length];
+            await db.updateSlide(slides[i].id, {
+              designTemplateId: templateId,
+              colorPaletteId: 'dark-neon',
+            });
+            updates.push({
+              slideId: slides[i].id,
+              templateId,
+              reason: 'Template distribuído automaticamente'
+            });
+          }
+
+          return { paletteId: 'dark-neon', updates };
+        }
+      }),
   }),
 
   // ===== PROJECTS =====
@@ -269,6 +367,33 @@ export const appRouter = router({
           throw new TRPCError({ code: "NOT_FOUND" });
         }
         await db.deleteProject(input.id);
+        return { success: true };
+      }),
+
+    // Atualizar Kit de Marca
+    updateBrandKit: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        logoUrl: z.string().optional(),
+        colorPaletteId: z.string().optional(),
+        customColors: z.object({
+          background: z.string().optional(),
+          text: z.string().optional(),
+          accent: z.string().optional(),
+        }).optional(),
+        defaultTemplateId: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const project = await db.getProjectById(input.id);
+        if (!project || project.userId !== ctx.user.id) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+        await db.updateProjectBrandKit(input.id, {
+          logoUrl: input.logoUrl,
+          colorPaletteId: input.colorPaletteId,
+          customColors: input.customColors,
+          defaultTemplateId: input.defaultTemplateId,
+        });
         return { success: true };
       }),
 
@@ -786,6 +911,52 @@ export const appRouter = router({
         });
 
         return { success: true };
+      }),
+
+    // Atualizar template de design do slide
+    updateDesignTemplate: protectedProcedure
+      .input(z.object({
+        slideId: z.number(),
+        designTemplateId: z.string(),
+        colorPaletteId: z.string().optional(),
+        customColors: z.object({
+          background: z.string().optional(),
+          text: z.string().optional(),
+          accent: z.string().optional(),
+        }).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        await db.updateSlide(input.slideId, {
+          designTemplateId: input.designTemplateId,
+          colorPaletteId: input.colorPaletteId,
+          customColors: input.customColors,
+        });
+        return { success: true };
+      }),
+
+    // Salvar imagem renderizada do slide
+    saveRenderedImage: protectedProcedure
+      .input(z.object({
+        slideId: z.number(),
+        base64: z.string(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        // Decode base64
+        const base64Data = input.base64.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = Buffer.from(base64Data, 'base64');
+        
+        // Generate unique filename
+        const key = `rendered/${ctx.user.id}/${Date.now()}-slide-${input.slideId}.png`;
+        
+        // Upload to S3
+        const { url } = await storagePut(key, buffer, 'image/png');
+        
+        // Update slide with rendered image URL
+        await db.updateSlide(input.slideId, {
+          renderedImageUrl: url,
+        });
+        
+        return { url };
       }),
   }),
 
