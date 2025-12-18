@@ -687,26 +687,15 @@ export default function ProjectDetail() {
               <Button 
                 className="w-full" 
                 size="lg"
-                onClick={() => {
-                  // Se tem seleção atual válida, adiciona antes de gerar
-                  if (selectedSourceIds.length > 0 && currentTemplate) {
-                    handleAddSelection();
-                    // Pequeno delay para garantir que a lista foi atualizada
-                    setTimeout(() => handleGenerateAll(), 100);
-                  } else if (selections.length > 0) {
-                    handleGenerateAll();
-                  } else {
-                    toast.error("Selecione uma dor e um template");
-                  }
-                }}
-                disabled={generateContent.isPending || (selections.length === 0 && (selectedSourceIds.length === 0 || !currentTemplate))}
+                onClick={handleGenerateAll}
+                disabled={generateContent.isPending || selections.length === 0}
               >
                 {generateContent.isPending ? (
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
                 ) : (
                   <Zap className="w-4 h-4 mr-2" />
                 )}
-                Gerar {selections.length > 0 ? totalContents : (selectedSourceIds.length * currentQuantity || 0)} Conteúdo{(selections.length > 0 ? totalContents : selectedSourceIds.length * currentQuantity) > 1 ? "s" : ""}
+                Gerar {totalContents} Conteúdo{totalContents > 1 ? "s" : ""}
               </Button>
             </div>
           </div>
