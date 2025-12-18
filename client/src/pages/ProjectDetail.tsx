@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { trpc } from "@/lib/trpc";
+import { TemplateSelector, AccentColorSelector } from "@/components/SlidePreview";
 import { 
   ArrowLeft, Plus, Image, Video, Layers, Loader2, 
   ChevronRight, Trash2, Users, Zap, Target, AlertCircle,
@@ -46,6 +47,9 @@ export default function ProjectDetail() {
   const [currentContentType, setCurrentContentType] = useState<"carousel" | "image" | "video">("carousel");
   const [currentTemplate, setCurrentTemplate] = useState("");
   const [currentQuantity, setCurrentQuantity] = useState(1);
+  const [visualTemplate, setVisualTemplate] = useState("lifestyle-editorial");
+  const [accentColor, setAccentColor] = useState("neon-green");
+  const [showVisualTemplates, setShowVisualTemplates] = useState(false);
 
   const { data: project, isLoading } = trpc.projects.get.useQuery({ id: projectId });
   const { data: contents } = trpc.content.list.useQuery({ projectId }, { enabled: !!projectId });
@@ -554,6 +558,36 @@ export default function ProjectDetail() {
                     </Button>
                   ))}
                 </div>
+              </div>
+
+              {/* Template Visual (BrandsDecoded Style) */}
+              <div className="space-y-3 pt-4 border-t">
+                <div className="flex items-center justify-between">
+                  <Label>Template Visual</Label>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => setShowVisualTemplates(!showVisualTemplates)}
+                  >
+                    {showVisualTemplates ? "Fechar" : "Escolher Estilo"}
+                  </Button>
+                </div>
+                
+                {showVisualTemplates && (
+                  <div className="space-y-4">
+                    <TemplateSelector
+                      selectedId={visualTemplate}
+                      onSelect={setVisualTemplate}
+                    />
+                    <div className="space-y-2">
+                      <Label className="text-xs">Cor de Destaque</Label>
+                      <AccentColorSelector
+                        selectedId={accentColor}
+                        onSelect={setAccentColor}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Botão Adicionar */}

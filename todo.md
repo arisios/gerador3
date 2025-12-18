@@ -176,3 +176,10 @@
 - [x] Permitir upload de foto própria na criação de influenciador por foto
 - [x] Usar a foto como referência visual para a IA
 - [x] Rota genérica de upload de imagem para S3
+
+## Templates Visuais BrandsDecoded (18/12/2024)
+- [x] Criar componente SlidePreview que aplica os 12 templates visuais
+- [x] Permitir selecionar template visual ao criar conteúdo
+- [x] Aplicar estilos (overlay, posição do texto, cores neon) automaticamente
+- [x] Preview em tempo real do template selecionado
+- [x] Seletor de cor de destaque (8 cores neon)

@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { trpc } from "@/lib/trpc";
 import SlideComposer, { SlideStyle } from "@/components/SlideComposer";
+import SlidePreview, { TemplateSelector, AccentColorSelector } from "@/components/SlidePreview";
 import { ImageLightbox } from "@/components/ImageLightbox";
 import { downloadCarouselSlide, downloadSingleImage, downloadAllSlidesWithText, downloadAllSlidesWithoutText } from "@/lib/downloadSlide";
 import { ArrowLeft, Download, Image, Loader2, ChevronLeft, ChevronRight, Edit2, Check, X, Plus, Sparkles, Maximize2, Images } from "lucide-react";
@@ -51,6 +52,9 @@ export default function ContentEdit() {
   const [showComposer, setShowComposer] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxImageIndex, setLightboxImageIndex] = useState<number | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState("lifestyle-editorial");
+  const [selectedAccentColor, setSelectedAccentColor] = useState("neon-green");
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
 
   const { data: content, isLoading, refetch } = trpc.content.get.useQuery({ id: contentId });
   const utils = trpc.useUtils();
@@ -333,32 +337,43 @@ export default function ContentEdit() {
             onDownload={handleDownload}
           />
         ) : (
-          <Card className="aspect-[4/5] relative overflow-hidden group cursor-pointer" onClick={() => currentSlide?.imageUrl && setLightboxOpen(true)}>
-            <CardContent className="p-0 h-full">
-              {currentSlide?.imageUrl ? (
-                <>
-                  <img src={currentSlide.imageUrl} alt="" className="w-full h-full object-cover" />
-                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button size="icon" variant="secondary" className="bg-black/50 hover:bg-black/70">
-                      <Maximize2 className="w-4 h-4 text-white" />
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <div className="w-full h-full bg-gradient-to-b from-primary/20 to-background flex items-center justify-center">
-                  <Image className="w-16 h-16 text-muted-foreground" />
+          <div className="space-y-4">
+            {/* Preview com Template Visual */}
+            <div 
+              className="cursor-pointer group"
+              onClick={() => currentSlide?.imageUrl && setLightboxOpen(true)}
+            >
+              <SlidePreview
+                text={currentSlide?.text || ""}
+                imageUrl={currentSlide?.imageUrl || undefined}
+                templateId={selectedTemplate}
+                accentColorId={selectedAccentColor}
+                className="w-full"
+              />
+              {currentSlide?.imageUrl && (
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                  <Button size="icon" variant="secondary" className="bg-black/50 hover:bg-black/70">
+                    <Maximize2 className="w-4 h-4 text-white" />
+                  </Button>
                 </div>
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-              <div className="absolute bottom-0 left-0 right-0 p-6">
+            </div>
+
+            {/* Edição de Texto */}
+            <Card>
+              <CardContent className="p-4 space-y-3">
                 {editingText ? (
-                  <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                  <div className="space-y-2">
+                    <Label>Texto do Slide</Label>
                     <Textarea
                       value={slideText}
                       onChange={(e) => setSlideText(e.target.value)}
-                      className="bg-black/50 border-white/20 text-white"
-                      rows={4}
+                      placeholder="Use **palavra** para destacar com cor neon"
+                      rows={3}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Dica: Use **palavra** para destacar com a cor de destaque
+                    </p>
                     <div className="flex gap-2">
                       <Button size="sm" onClick={handleSaveText} disabled={updateSlide.isPending}>
                         <Check className="w-4 h-4 mr-1" /> Salvar
@@ -369,16 +384,47 @@ export default function ContentEdit() {
                     </div>
                   </div>
                 ) : (
-                  <div className="text-white">
-                    <p className="text-lg font-bold leading-tight">{currentSlide?.text || "Sem texto"}</p>
-                    <Button size="sm" variant="ghost" className="mt-2 text-white/80" onClick={(e) => { e.stopPropagation(); setEditingText(true); }}>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm truncate flex-1">{currentSlide?.text || "Sem texto"}</p>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingText(true)}>
                       <Edit2 className="w-4 h-4 mr-1" /> Editar
                     </Button>
                   </div>
                 )}
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+
+            {/* Seletor de Template e Cor */}
+            <Card>
+              <CardContent className="p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label>Template Visual</Label>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => setShowTemplateSelector(!showTemplateSelector)}
+                  >
+                    {showTemplateSelector ? "Fechar" : "Escolher"}
+                  </Button>
+                </div>
+                
+                {showTemplateSelector && (
+                  <TemplateSelector
+                    selectedId={selectedTemplate}
+                    onSelect={setSelectedTemplate}
+                  />
+                )}
+
+                <div className="space-y-2">
+                  <Label>Cor de Destaque</Label>
+                  <AccentColorSelector
+                    selectedId={selectedAccentColor}
+                    onSelect={setSelectedAccentColor}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {/* Slide Navigation */}
