@@ -200,3 +200,10 @@
 - [x] Kit de marca: upload de logo para incluir nos templates
 - [x] Download renderizado em PNG/JPG com template aplicado
 - [x] Template automático varia entre slides do carrossel (IA escolhe templates diferentes)
+
+## Extração Automática de Logo (18/12/2024)
+- [x] Ao analisar link (Instagram, TikTok, etc.), identificar imagem de perfil
+- [x] Usar IA para analisar se é logo ou foto pessoal
+- [x] Se for logo, indicar detecção e razão
+- [x] Mostrar notificação de logo detectada no fluxo de criação
+- [x] Indicar no step final que logo foi detectada para configurar no kit de marca

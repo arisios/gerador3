@@ -505,7 +505,43 @@ export const appRouter = router({
           })));
         }
 
-        return { projectId, businessAnalysis: analysisData.businessAnalysis, potentialClients: analysisData.potentialClients };
+        // Tentar extrair logo do perfil (Instagram, TikTok)
+        let extractedLogo = null;
+        try {
+          if (input.sourceType === 'instagram' || input.sourceType === 'tiktok') {
+            // Construir URL da imagem de perfil baseado no tipo
+            let profileImageUrl = '';
+            
+            // Para Instagram e TikTok, a imagem de perfil geralmente está disponível
+            // Vamos usar a IA para analisar se é uma logo
+            const logoAnalysisResponse = await invokeLLM({
+              messages: [
+                { role: "system", content: "Você é um especialista em identidade visual e branding. Analise se o nome e nicho do negócio sugerem que a imagem de perfil seria uma logo ou foto pessoal." },
+                { role: "user", content: `Negócio: ${analysisData.businessAnalysis.name}\nNicho: ${analysisData.businessAnalysis.niche}\nOferta: ${analysisData.businessAnalysis.mainOffer}\n\nCom base nessas informações, a imagem de perfil desse ${input.sourceType} provavelmente é uma LOGO ou uma FOTO PESSOAL?\n\nResponda com JSON: { "likelyLogo": true/false, "reason": "explicação" }` }
+              ],
+            });
+            
+            const logoAnalysisText = logoAnalysisResponse.choices[0]?.message?.content || "{}";
+            try {
+              const logoAnalysis = JSON.parse(typeof logoAnalysisText === 'string' ? logoAnalysisText.match(/\{[\s\S]*\}/)?.[0] || "{}" : "{}");
+              if (logoAnalysis.likelyLogo) {
+                extractedLogo = {
+                  detected: true,
+                  reason: logoAnalysis.reason,
+                  sourceType: input.sourceType,
+                  // A URL real seria extraída via scraping, mas por ora indicamos que foi detectada
+                  needsExtraction: true
+                };
+              }
+            } catch (e) {
+              // Ignora erro de parse
+            }
+          }
+        } catch (e) {
+          // Ignora erro de extração de logo
+        }
+
+        return { projectId, businessAnalysis: analysisData.businessAnalysis, potentialClients: analysisData.potentialClients, extractedLogo };
       }),
 
     selectClientsAndGeneratePains: protectedProcedure

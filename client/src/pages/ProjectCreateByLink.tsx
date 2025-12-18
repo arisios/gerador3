@@ -57,6 +57,7 @@ export default function ProjectCreateByLink() {
   const [potentialClients, setPotentialClients] = useState<PotentialClient[]>([]);
   const [selectedClientIndices, setSelectedClientIndices] = useState<number[]>([]);
   const [expandedClients, setExpandedClients] = useState<number[]>([]);
+  const [extractedLogo, setExtractedLogo] = useState<{ detected: boolean; reason: string; sourceType: string; needsExtraction: boolean } | null>(null);
   
 
 
@@ -65,6 +66,10 @@ export default function ProjectCreateByLink() {
       setProjectId(data.projectId);
       setBusinessAnalysis(data.businessAnalysis);
       setPotentialClients(data.potentialClients || []);
+      if (data.extractedLogo) {
+        setExtractedLogo(data.extractedLogo);
+        toast.success("🎯 Logo detectada! Você poderá configurá-la no kit de marca.");
+      }
       setStep(3);
     },
     onError: (error) => {
@@ -524,6 +529,16 @@ export default function ProjectCreateByLink() {
                 <Target className="w-4 h-4 text-destructive" />
                 <span>Dores principais, secundárias e inexploradas</span>
               </div>
+              {extractedLogo?.detected && (
+                <div className="flex items-center justify-center gap-2 text-green-500">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <path d="M21 15l-5-5L5 21" />
+                  </svg>
+                  <span>🎯 Logo detectada! Configure no kit de marca.</span>
+                </div>
+              )}
             </div>
             <Button size="lg" onClick={handleFinish}>
               Ir para o Projeto

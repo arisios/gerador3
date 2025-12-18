@@ -81,6 +81,29 @@ Retorne um JSON com:
 }
 `;
 
+// ===== PROMPT DE ANÁLISE DE IMAGEM DE PERFIL (LOGO) =====
+export const analyzeProfileImagePrompt = () => `
+Você é um especialista em identidade visual e branding.
+
+Analise esta imagem de perfil e determine:
+
+1. É uma LOGO/MARCA ou uma FOTO PESSOAL?
+2. Se for logo, descreva os elementos visuais principais
+3. Qual é a cor predominante?
+4. A imagem tem qualidade suficiente para uso em templates?
+
+Retorne um JSON:
+{
+  "isLogo": true/false,
+  "confidence": 0.0-1.0,
+  "description": "descrição da imagem",
+  "dominantColor": "#HEXCOLOR",
+  "elements": ["elementos identificados"],
+  "quality": "high/medium/low",
+  "recommendation": "usar como logo / não usar / precisa de tratamento"
+}
+`;
+
 // ===== PROMPT DE ANÁLISE PROFUNDA DE LINK =====
 export const analyzeLinkDeepPrompt = (url: string, sourceType: string) => `
 Você é um especialista em análise de negócios e marketing digital.
