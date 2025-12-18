@@ -241,3 +241,6 @@
 
 ## Bug SlideComposer (18/12/2024)
 - [x] SlideComposer não respeita o layout do template selecionado - CORRIGIDO: agora usa imageFrame do template
+
+## Bug Download SlideComposer (18/12/2024)
+- [x] Download do SlideComposer não renderiza a imagem - CORRIGIDO: agora usa template e proxy de imagem

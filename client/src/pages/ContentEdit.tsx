@@ -201,17 +201,157 @@ export default function ContentEdit() {
   };
 
   const handleComposerDownload = async (withText: boolean) => {
-    if (!currentSlide || !currentSlide.imageUrl) return;
+    if (!currentSlide) return;
+    
     try {
-      // Download simples da imagem
+      const template = designTemplates.find((t: DesignTemplate) => t.id === selectedTemplateId) || designTemplates[0];
+      const palette = colorPalettes.find((p) => p.id === selectedPaletteId);
+      
+      // Criar canvas temporário
+      const canvas = document.createElement('canvas');
+      canvas.width = 1080;
+      canvas.height = 1080;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Cores
+      const bgColor = palette?.colors.background || template.colors.background;
+      const textColor = palette?.colors.text || template.colors.text;
+
+      // Desenhar fundo
+      if (bgColor.startsWith('linear-gradient')) {
+        ctx.fillStyle = '#0a0a0a';
+      } else {
+        ctx.fillStyle = bgColor;
+      }
+      ctx.fillRect(0, 0, 1080, 1080);
+
+      // Desenhar imagem na moldura
+      if (currentSlide.imageUrl && template.imageFrame.position !== 'none') {
+        await new Promise<void>((resolve) => {
+          const img = new window.Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            const frame = template.imageFrame;
+            const frameX = parsePercent(frame.x, 1080);
+            const frameY = parsePercent(frame.y, 1080);
+            const frameW = parsePercent(frame.width, 1080);
+            const frameH = parsePercent(frame.height, 1080);
+            const borderRadius = parsePercent(frame.borderRadius, 1080);
+
+            ctx.save();
+            
+            if (borderRadius > 0) {
+              roundedRect(ctx, frameX, frameY, frameW, frameH, borderRadius);
+              ctx.clip();
+            }
+
+            const imgRatio = img.width / img.height;
+            const frameRatio = frameW / frameH;
+            let sx = 0, sy = 0, sw = img.width, sh = img.height;
+            
+            if (imgRatio > frameRatio) {
+              sw = img.height * frameRatio;
+              sx = (img.width - sw) / 2;
+            } else {
+              sh = img.width / frameRatio;
+              sy = (img.height - sh) / 2;
+            }
+            
+            ctx.drawImage(img, sx, sy, sw, sh, frameX, frameY, frameW, frameH);
+            ctx.restore();
+            resolve();
+          };
+          img.onerror = () => resolve();
+          // Usar proxy para evitar CORS
+          const proxyUrl = `/api/trpc/images.proxy?input=${encodeURIComponent(JSON.stringify({ url: currentSlide.imageUrl }))}`;
+          img.src = proxyUrl;
+        });
+      }
+
+      // Desenhar texto se withText for true
+      if (withText && currentSlide.text) {
+        const textStyle = template.textStyle;
+        const fontSizes: Record<string, number> = {
+          'sm': 32, 'base': 40, 'lg': 48, 'xl': 60, '2xl': 70, '3xl': 86
+        };
+        const fontWeights: Record<string, string> = {
+          'normal': '400', 'medium': '500', 'semibold': '600', 'bold': '700', 'black': '900'
+        };
+        const lineHeights: Record<string, number> = {
+          'tight': 1.1, 'normal': 1.4, 'relaxed': 1.6
+        };
+        
+        const fontSize = fontSizes[textStyle.fontSize] || 60;
+        const fontWeight = fontWeights[textStyle.fontWeight] || '700';
+        const lineHeight = lineHeights[textStyle.lineHeight] || 1.4;
+        const padding = parsePercent(textStyle.padding, 1080);
+        const maxWidth = parsePercent(textStyle.maxWidth, 1080);
+        
+        ctx.font = `${fontWeight} ${fontSize}px Inter, system-ui, sans-serif`;
+        ctx.fillStyle = textColor;
+        ctx.textAlign = textStyle.alignment as CanvasTextAlign;
+        ctx.textBaseline = 'top';
+        
+        if (textStyle.textShadow) {
+          ctx.shadowColor = 'rgba(0,0,0,0.8)';
+          ctx.shadowBlur = 10;
+          ctx.shadowOffsetX = 2;
+          ctx.shadowOffsetY = 2;
+        }
+        
+        const words = currentSlide.text.split(' ');
+        const lines: string[] = [];
+        let currentLine = '';
+        
+        for (const word of words) {
+          const testLine = currentLine ? `${currentLine} ${word}` : word;
+          const metrics = ctx.measureText(testLine);
+          if (metrics.width > maxWidth && currentLine) {
+            lines.push(currentLine);
+            currentLine = word;
+          } else {
+            currentLine = testLine;
+          }
+        }
+        if (currentLine) lines.push(currentLine);
+        
+        const totalTextHeight = lines.length * fontSize * lineHeight;
+        let textX = 540;
+        let textY = 0;
+        
+        // Calcular posição Y baseado no position do template
+        const pos = textStyle.position;
+        if (pos.includes('top')) {
+          textY = padding;
+        } else if (pos.includes('bottom')) {
+          textY = 1080 - totalTextHeight - padding;
+        } else {
+          textY = (1080 - totalTextHeight) / 2;
+        }
+        
+        if (textStyle.alignment === 'left') textX = padding;
+        else if (textStyle.alignment === 'right') textX = 1080 - padding;
+        
+        lines.forEach((line, i) => {
+          ctx.fillText(line, textX, textY + i * fontSize * lineHeight);
+        });
+        
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+      }
+
+      // Download
+      const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
-      link.href = currentSlide.imageUrl;
-      link.download = `slide_${currentSlideIndex + 1}.png`;
+      link.href = dataUrl;
+      link.download = `slide_${currentSlideIndex + 1}_rendered.png`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      toast.success("Download iniciado!");
+      toast.success("Download concluído!");
     } catch (error) {
+      console.error('Erro no download:', error);
       toast.error("Erro no download");
     }
   };
