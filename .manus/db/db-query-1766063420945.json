@@ -1,0 +1,16 @@
+{
+  "query": "SELECT id, name, niche, referenceImageUrl FROM influencers WHERE id = 30001",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user jBC2ktSCzeC14Eh.491f207d3e9c --database 8KSL4ZTiyER4x52xANnJF9 --execute SELECT id, name, niche, referenceImageUrl FROM influencers WHERE id = 30001",
+  "rows": [
+    {
+      "id": "30001",
+      "name": "Ana Fitness",
+      "niche": "Fitness",
+      "referenceImageUrl": "https://d2xsxph8kpxj0f.cloudfront.net/310519663235737862/8KSL4ZTiyER4x52xANnJF9/generated/1766063145701.png"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tniche\treferenceImageUrl\n30001\tAna Fitness\tFitness\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663235737862/8KSL4ZTiyER4x52xANnJF9/generated/1766063145701.png\n",
+  "stderr": "",
+  "execution_time_ms": 123
+}

@@ -1,0 +1,19 @@
+{
+  "query": "SHOW TABLES LIKE '%influencer%'",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user jBC2ktSCzeC14Eh.491f207d3e9c --database 8KSL4ZTiyER4x52xANnJF9 --execute SHOW TABLES LIKE '%influencer%'",
+  "rows": [
+    {
+      "Tables_in_8KSL4ZTiyER4x52xANnJF9 (%influencer%)": "influencerContents"
+    },
+    {
+      "Tables_in_8KSL4ZTiyER4x52xANnJF9 (%influencer%)": "influencerSlides"
+    },
+    {
+      "Tables_in_8KSL4ZTiyER4x52xANnJF9 (%influencer%)": "influencers"
+    }
+  ],
+  "messages": [],
+  "stdout": "Tables_in_8KSL4ZTiyER4x52xANnJF9 (%influencer%)\ninfluencerContents\ninfluencerSlides\ninfluencers\n",
+  "stderr": "",
+  "execution_time_ms": 55
+}

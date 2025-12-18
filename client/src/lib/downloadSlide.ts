@@ -8,19 +8,19 @@ const CANVAS_HEIGHT = 1350;
  */
 async function loadImageWithProxy(imageUrl: string): Promise<HTMLImageElement> {
   // Primeiro, buscar a imagem via proxy e converter para data URL
-  const proxyUrl = `/api/trpc/proxy.getImage?input=${encodeURIComponent(JSON.stringify({ url: imageUrl }))}`;
+  const proxyUrl = `/api/trpc/proxy.getImage?input=${encodeURIComponent(JSON.stringify({ json: { url: imageUrl } }))}`;
   
   try {
     const response = await fetch(proxyUrl);
     const data = await response.json();
     
-    if (data.result?.data?.data) {
+    if (data.result?.data?.json?.data) {
       return new Promise((resolve, reject) => {
         const img = new Image();
         img.crossOrigin = "anonymous";
         img.onload = () => resolve(img);
         img.onerror = () => reject(new Error("Falha ao carregar imagem do proxy"));
-        img.src = data.result.data.data;
+        img.src = data.result.data.json.data;
       });
     }
   } catch (error) {

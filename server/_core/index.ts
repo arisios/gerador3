@@ -7,6 +7,9 @@ import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { storagePut } from "../storage";
+import multer from "multer";
+import { nanoid } from "nanoid";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -35,6 +38,24 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
+  
+  // File upload endpoint
+  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+  app.post("/api/upload", upload.single("file"), async (req: express.Request, res: express.Response) => {
+    try {
+      const file = (req as any).file;
+      if (!file) {
+        return res.status(400).json({ error: "No file provided" });
+      }
+      const ext = file.originalname.split(".").pop() || "jpg";
+      const key = `uploads/${nanoid()}.${ext}`;
+      const { url } = await storagePut(key, file.buffer, file.mimetype);
+      res.json({ url, key });
+    } catch (error) {
+      console.error("Upload error:", error);
+      res.status(500).json({ error: "Upload failed" });
+    }
+  });
   // tRPC API
   app.use(
     "/api/trpc",

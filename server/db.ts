@@ -297,6 +297,12 @@ export async function getInfluencerSlidesByContent(contentId: number): Promise<I
   return db.select().from(influencerSlides).where(eq(influencerSlides.contentId, contentId)).orderBy(influencerSlides.order);
 }
 
+export async function updateInfluencerSlide(id: number, data: Partial<Omit<InfluencerSlide, "id" | "contentId" | "createdAt">>): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(influencerSlides).set({ ...data, updatedAt: new Date() }).where(eq(influencerSlides.id, id));
+}
+
 // ===== TRENDS FUNCTIONS =====
 export async function createTrends(userId: number, trendsList: Omit<Trend, "id" | "userId" | "collectedAt">[]): Promise<void> {
   const db = await getDb();

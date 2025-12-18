@@ -72,8 +72,8 @@ export default function InfluencerDetail() {
         {/* Profile */}
         <div className="flex items-center gap-4">
           <div className="w-20 h-20 rounded-full bg-muted overflow-hidden">
-            {influencer.photoUrl ? (
-              <img src={influencer.photoUrl} alt={influencer.name} className="w-full h-full object-cover" />
+            {influencer.referenceImageUrl ? (
+              <img src={influencer.referenceImageUrl} alt={influencer.name} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
                 <User className="w-8 h-8 text-muted-foreground" />

@@ -424,6 +424,41 @@ export const appRouter = router({
         return { ...influencer, contents };
       }),
 
+    generateReferencePhotos: protectedProcedure
+      .input(z.object({
+        name: z.string(),
+        niche: z.string(),
+        description: z.string(),
+        type: z.enum(["normal", "transformation"]).default("normal"),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const prompt = `Foto profissional para Instagram de um influenciador digital.
+Nome: ${input.name}
+Nicho: ${input.niche}
+Descrição física: ${input.description}
+
+A foto deve:
+- Parecer natural e autêntica
+- Ter qualidade profissional de fotografia
+- Mostrar a pessoa de forma atraente e confiável
+- Ser adequada para perfil de Instagram
+- Formato retrato 4:5
+- Iluminação natural e ambiente agradável`;
+
+        const photos: string[] = [];
+        for (let i = 0; i < 3; i++) {
+          try {
+            const result = await generateImage({ prompt });
+            if (result.url) {
+              photos.push(result.url);
+            }
+          } catch (e) {
+            console.error("Erro ao gerar foto", i, e);
+          }
+        }
+        return { photos };
+      }),
+
     create: protectedProcedure
       .input(z.object({
         name: z.string().min(1),
@@ -557,6 +592,101 @@ O conteúdo deve parecer natural e autêntico, não vendedor demais.`
         }
 
         return { contentId };
+      }),
+
+    generateSlideImage: protectedProcedure
+      .input(z.object({
+        slideId: z.number(),
+        influencerId: z.number(),
+        slideText: z.string(),
+        context: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const influencer = await db.getInfluencerById(input.influencerId);
+        if (!influencer || influencer.userId !== ctx.user.id) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+
+        if (!influencer.referenceImageUrl) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Influenciador não tem imagem de referência" });
+        }
+
+        const prompt = `Foto profissional para Instagram de um influenciador digital.
+Nicho: ${influencer.niche || "lifestyle"}
+Contexto do slide: ${input.slideText}
+${input.context ? `Contexto adicional: ${input.context}` : ""}
+
+A foto deve:
+- Manter a MESMA pessoa da imagem de referência
+- Parecer natural e autêntica
+- Ter qualidade profissional
+- Ser adequada para Instagram (4:5)
+- Combinar com o contexto do conteúdo`;
+
+        const result = await generateImage({
+          prompt,
+          originalImages: [{
+            url: influencer.referenceImageUrl,
+            mimeType: "image/jpeg"
+          }]
+        });
+
+        if (result.url) {
+          await db.updateInfluencerSlide(input.slideId, { imageUrl: result.url });
+        }
+
+        return { imageUrl: result.url };
+      }),
+
+    generateAllSlideImages: protectedProcedure
+      .input(z.object({
+        contentId: z.number(),
+        influencerId: z.number(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const influencer = await db.getInfluencerById(input.influencerId);
+        if (!influencer || influencer.userId !== ctx.user.id) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+
+        if (!influencer.referenceImageUrl) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Influenciador não tem imagem de referência" });
+        }
+
+        const slides = await db.getInfluencerSlidesByContent(input.contentId);
+        const results: { slideId: number; imageUrl?: string }[] = [];
+
+        for (const slide of slides) {
+          const prompt = `Foto profissional para Instagram de um influenciador digital.
+Nicho: ${influencer.niche || "lifestyle"}
+Contexto do slide: ${slide.text}
+
+A foto deve:
+- Manter a MESMA pessoa da imagem de referência
+- Parecer natural e autêntica
+- Ter qualidade profissional
+- Ser adequada para Instagram (4:5)`;
+
+          try {
+            const result = await generateImage({
+              prompt,
+              originalImages: [{
+                url: influencer.referenceImageUrl,
+                mimeType: "image/jpeg"
+              }]
+            });
+
+            if (result.url) {
+              await db.updateInfluencerSlide(slide.id, { imageUrl: result.url });
+              results.push({ slideId: slide.id, imageUrl: result.url });
+            }
+          } catch (e) {
+            console.error("Erro ao gerar imagem do slide", slide.id, e);
+            results.push({ slideId: slide.id });
+          }
+        }
+
+        return { results };
       }),
   }),
 
