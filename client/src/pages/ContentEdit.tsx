@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { trpc } from "@/lib/trpc";
 import { SlideRenderer, SlidePreview, TemplateSelector, downloadSlide } from "@/components/SlideRenderer";
-import SlideComposer, { SlideStyle } from "@/components/SlideComposer";
+// SlideComposer antigo removido - usando apenas SlideComposerNew
 import SlideComposerNew from "@/components/SlideComposerNew";
 import { ImageLightbox } from "@/components/ImageLightbox";
 import { designTemplates, colorPalettes, type DesignTemplate } from "../../../shared/designTemplates";
@@ -28,7 +28,7 @@ export default function ContentEdit() {
   const [selectedTemplateId, setSelectedTemplateId] = useState("split-top-image");
   const [selectedPaletteId, setSelectedPaletteId] = useState("dark-purple");
   const [designSheetOpen, setDesignSheetOpen] = useState(false);
-  const [showComposer, setShowComposer] = useState(false);
+  // showComposer removido - usando apenas showNewComposer
   const [showNewComposer, setShowNewComposer] = useState(false);
 
   const { data: content, isLoading } = trpc.content.get.useQuery({ id: contentId });
@@ -190,33 +190,7 @@ export default function ContentEdit() {
     }
   };
 
-  // Funções para o SlideComposer
-  const handleStyleChange = (style: SlideStyle) => {
-    // Não salvar automaticamente - o usuário precisa clicar em "Salvar Edição"
-    // Apenas atualizar o estado local para o preview em tempo real
-  };
-
-  const handleComposerTextChange = (text: string) => {
-    if (!currentSlide) return;
-    setSlideText(text);
-    updateSlide.mutate({ id: currentSlide.id, text: text });
-  };
-
-  const handleComposerDownload = async (withText: boolean) => {
-    if (!currentSlide || !currentSlide.imageUrl) return;
-    try {
-      // Download simples da imagem
-      const link = document.createElement('a');
-      link.href = currentSlide.imageUrl;
-      link.download = `slide_${currentSlideIndex + 1}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast.success("Download iniciado!");
-    } catch (error) {
-      toast.error("Erro no download");
-    }
-  };
+  // Funções removidas - usando apenas SlideComposerNew
 
   // Download com template renderizado
   const handleDownloadRendered = async () => {
@@ -549,23 +523,6 @@ export default function ContentEdit() {
             backgroundColor={colorPalettes.find(p => p.id === selectedPaletteId)?.colors.background || "#1a1a2e"}
             slideIndex={currentSlideIndex}
           />
-        ) : showComposer && currentSlide ? (
-          <SlideComposer
-            text={currentSlide.text || ""}
-            imageUrl={currentSlide.imageUrl || undefined}
-            templateId={selectedTemplateId}
-            paletteId={selectedPaletteId}
-            logoUrl={project?.logoUrl || undefined}
-            slideIndex={currentSlideIndex}
-            slideId={currentSlide.id}
-            style={(currentSlide as any).style || {}}
-            onStyleChange={handleStyleChange}
-            onTextChange={handleComposerTextChange}
-            onDownload={handleComposerDownload}
-            onSave={async (style) => {
-              await updateSlide.mutateAsync({ id: currentSlide.id, style: style as any });
-            }}
-          />
         ) : (
           <Card className="overflow-hidden">
             <div className="relative">
@@ -653,24 +610,10 @@ export default function ContentEdit() {
                   <Button 
                     variant={showNewComposer ? "default" : "outline"} 
                     size="sm"
-                    onClick={() => {
-                      setShowNewComposer(!showNewComposer);
-                      setShowComposer(false);
-                    }}
+                    onClick={() => setShowNewComposer(!showNewComposer)}
                   >
                     <Edit2 className="w-4 h-4 mr-1" />
-                    {showNewComposer ? "Fechar" : "Editor Novo"}
-                  </Button>
-                  <Button 
-                    variant={showComposer ? "default" : "outline"} 
-                    size="sm"
-                    onClick={() => {
-                      setShowComposer(!showComposer);
-                      setShowNewComposer(false);
-                    }}
-                  >
-                    <Edit2 className="w-4 h-4 mr-1" />
-                    {showComposer ? "Fechar" : "Editor Antigo"}  
+                    {showNewComposer ? "Fechar" : "Editar Visual"}  
                   </Button>
                   <Sheet open={designSheetOpen} onOpenChange={setDesignSheetOpen}>
                     <SheetTrigger asChild>

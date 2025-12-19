@@ -339,3 +339,42 @@
 - [ ] Testar em dispositivo real (sandbox tem viewport muito grande)
 - [ ] Garantir que preview = download
 - [ ] Integrar com sistema de salvamento de estilos
+
+## Bugs Reportados - Editor Novo (19/12/2024)
+- [ ] Download vem sem imagem (só fundo roxo com texto) - CORRIGIR
+- [ ] Editor de texto muito básico - adicionar todas as opções do editor antigo:
+  - [ ] Tamanho da fonte
+  - [ ] Cor do texto
+  - [ ] Cor de fundo do texto
+  - [ ] Alinhamento (esquerda, centro, direita)
+  - [ ] Sombra do texto
+  - [ ] Espaçamento entre letras
+  - [ ] Altura da linha
+  - [ ] Borda/contorno
+  - [ ] Efeito glow
+
+
+## Novo Editor Visual - SlideComposerNew (19/12/2024)
+- [x] Criar componente SlideComposerNew com drag-and-drop
+- [x] Imagem arrastável (toque/mouse)
+- [x] Texto arrastável (toque/mouse)
+- [x] Suporte a múltiplos blocos de texto
+- [x] Botões +/- para tamanho (imagem e texto)
+- [x] Download com imagem funcionando
+- [x] Todas as opções de edição de texto:
+  - [x] Tamanho da fonte
+  - [x] Cor do texto
+  - [x] Cor de fundo do slide
+  - [x] Alinhamento (esquerda, centro, direita)
+  - [x] Sombra do texto (cor, blur, offset)
+  - [x] Contorno/borda (cor, espessura)
+  - [x] Efeito glow (cor, intensidade)
+  - [x] Espaçamento entre letras
+  - [x] Altura da linha
+  - [x] Fundo do texto (cor, padding)
+  - [x] Fonte (várias opções)
+  - [x] Peso (normal, bold)
+- [x] Remover editor antigo (SlideComposer)
+- [x] Renomear botão para "Editar Visual"
+- [ ] Testar em dispositivo real
+- [ ] Salvar posições no banco de dados

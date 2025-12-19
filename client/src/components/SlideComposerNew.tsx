@@ -1,40 +1,55 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { 
-  Download, 
-  Plus, 
-  Minus, 
-  Trash2, 
-  Type, 
-  Image as ImageIcon,
-  Save,
-  RotateCcw,
-  PlusCircle
-} from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { 
+  Plus, Minus, Trash2, Download, Move, Type, Image as ImageIcon,
+  AlignLeft, AlignCenter, AlignRight, Bold, Italic
+} from "lucide-react";
 
 // Tipos
 interface TextBlock {
   id: string;
   text: string;
-  x: number; // % do canvas (0-100)
-  y: number; // % do canvas (0-100)
+  x: number; // 0-100 (percentual)
+  y: number; // 0-100 (percentual)
   fontSize: number;
   color: string;
   fontFamily: string;
-  fontWeight: "normal" | "bold";
+  fontWeight: string;
   textAlign: "left" | "center" | "right";
+  // Sombra
   shadowEnabled: boolean;
   shadowColor: string;
   shadowBlur: number;
+  shadowOffsetX: number;
+  shadowOffsetY: number;
+  // Borda/Contorno
+  borderEnabled: boolean;
+  borderColor: string;
+  borderWidth: number;
+  // Glow
+  glowEnabled: boolean;
+  glowColor: string;
+  glowIntensity: number;
+  // Espaçamento
+  letterSpacing: number;
+  lineHeight: number;
+  // Fundo do texto
+  bgEnabled: boolean;
+  bgColor: string;
+  bgPadding: number;
 }
 
 interface ImageSettings {
-  x: number; // % do canvas (0-100)
-  y: number; // % do canvas (0-100)
-  width: number; // % do canvas (0-100)
-  height: number; // % do canvas (0-100)
+  x: number; // 0-100
+  y: number; // 0-100
+  width: number; // 0-100
+  height: number; // 0-100
 }
 
 interface SlideComposerNewProps {
@@ -55,7 +70,7 @@ interface SaveData {
 const DEFAULT_TEXT_BLOCK: Omit<TextBlock, "id"> = {
   text: "Seu texto aqui",
   x: 50,
-  y: 80,
+  y: 75,
   fontSize: 28,
   color: "#FFFFFF",
   fontFamily: "Inter",
@@ -64,6 +79,19 @@ const DEFAULT_TEXT_BLOCK: Omit<TextBlock, "id"> = {
   shadowEnabled: true,
   shadowColor: "#000000",
   shadowBlur: 4,
+  shadowOffsetX: 2,
+  shadowOffsetY: 2,
+  borderEnabled: false,
+  borderColor: "#FFFFFF",
+  borderWidth: 2,
+  glowEnabled: false,
+  glowColor: "#A855F7",
+  glowIntensity: 10,
+  letterSpacing: 0,
+  lineHeight: 1.3,
+  bgEnabled: false,
+  bgColor: "#000000",
+  bgPadding: 8,
 };
 
 const DEFAULT_IMAGE_SETTINGS: ImageSettings = {
@@ -72,6 +100,27 @@ const DEFAULT_IMAGE_SETTINGS: ImageSettings = {
   width: 100,
   height: 60,
 };
+
+const COLOR_PRESETS = [
+  { name: "Branco", text: "#FFFFFF", bg: "#1a1a2e" },
+  { name: "Neon Verde", text: "#39FF14", bg: "#0a0a0a" },
+  { name: "Neon Rosa", text: "#FF10F0", bg: "#0a0a0a" },
+  { name: "Amarelo", text: "#FFFF00", bg: "#0a0a0a" },
+  { name: "Laranja", text: "#FF6B00", bg: "#0a0a0a" },
+  { name: "Azul", text: "#00D4FF", bg: "#0a0a0a" },
+  { name: "Roxo", text: "#A855F7", bg: "#1a1a2e" },
+  { name: "Vermelho", text: "#FF0000", bg: "#0a0a0a" },
+];
+
+const FONT_FAMILIES = [
+  "Inter",
+  "Arial",
+  "Georgia",
+  "Times New Roman",
+  "Courier New",
+  "Verdana",
+  "Impact",
+];
 
 // Gerar ID único
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -93,6 +142,7 @@ export default function SlideComposerNew({
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [downloading, setDownloading] = useState(false);
+  const [activeTab, setActiveTab] = useState("basico");
   
   // Refs
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -100,133 +150,129 @@ export default function SlideComposerNew({
   // Atualizar texto inicial quando mudar
   useEffect(() => {
     if (initialText && textBlocks.length > 0) {
-      setTextBlocks(prev => [{
-        ...prev[0],
-        text: initialText
-      }, ...prev.slice(1)]);
+      setTextBlocks(prev => [
+        { ...prev[0], text: initialText },
+        ...prev.slice(1)
+      ]);
     }
   }, [initialText]);
-
+  
+  // Bloco de texto selecionado
+  const selectedTextBlock = textBlocks.find(b => b.id === selectedElement);
+  
   // Funções de manipulação de texto
   const addTextBlock = () => {
     const newBlock: TextBlock = {
       ...DEFAULT_TEXT_BLOCK,
       id: generateId(),
-      y: 20 + (textBlocks.length * 15) % 60, // Posiciona em lugares diferentes
+      text: "Novo texto",
+      y: 50 + textBlocks.length * 10,
     };
-    setTextBlocks(prev => [...prev, newBlock]);
+    setTextBlocks([...textBlocks, newBlock]);
     setSelectedElement(newBlock.id);
-    toast.success("Novo texto adicionado!");
   };
-
-  const updateTextBlock = (id: string, updates: Partial<TextBlock>) => {
-    setTextBlocks(prev => prev.map(block => 
-      block.id === id ? { ...block, ...updates } : block
-    ));
-  };
-
-  const deleteTextBlock = (id: string) => {
+  
+  const removeTextBlock = (id: string) => {
     if (textBlocks.length <= 1) {
-      toast.error("Precisa ter pelo menos um texto!");
+      toast.error("Deve haver pelo menos um bloco de texto");
       return;
     }
-    setTextBlocks(prev => prev.filter(block => block.id !== id));
-    setSelectedElement(null);
-    toast.success("Texto removido!");
+    setTextBlocks(textBlocks.filter(b => b.id !== id));
+    if (selectedElement === id) {
+      setSelectedElement(null);
+    }
   };
-
-  // Funções de drag and drop
-  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent, elementId: string) => {
+  
+  const updateTextBlock = (id: string, updates: Partial<TextBlock>) => {
+    setTextBlocks(textBlocks.map(b => 
+      b.id === id ? { ...b, ...updates } : b
+    ));
+  };
+  
+  // Funções de drag
+  const handleMouseDown = (e: React.MouseEvent, elementId: string) => {
     e.preventDefault();
-    e.stopPropagation();
+    setSelectedElement(elementId);
+    setIsDragging(true);
     
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
     
-    const rect = canvas.getBoundingClientRect();
-    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
-    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
-    
-    // Calcular offset do clique em relação ao elemento
-    const relX = ((clientX - rect.left) / rect.width) * 100;
-    const relY = ((clientY - rect.top) / rect.height) * 100;
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
     
     if (elementId === "image") {
-      setDragOffset({ x: relX - imageSettings.x, y: relY - imageSettings.y });
+      setDragOffset({ x: x - imageSettings.x, y: y - imageSettings.y });
     } else {
       const block = textBlocks.find(b => b.id === elementId);
       if (block) {
-        setDragOffset({ x: relX - block.x, y: relY - block.y });
+        setDragOffset({ x: x - block.x, y: y - block.y });
       }
     }
-    
-    setSelectedElement(elementId);
-    setIsDragging(true);
   };
-
-  const handleMouseMove = useCallback((e: MouseEvent | TouchEvent) => {
-    if (!isDragging || !selectedElement || !canvasRef.current) return;
+  
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !selectedElement) return;
     
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
-    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
     
-    // Calcular nova posição em %
-    let newX = ((clientX - rect.left) / rect.width) * 100 - dragOffset.x;
-    let newY = ((clientY - rect.top) / rect.height) * 100 - dragOffset.y;
-    
-    // Limitar dentro do canvas
-    newX = Math.max(0, Math.min(100, newX));
-    newY = Math.max(0, Math.min(100, newY));
+    const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100 - dragOffset.x));
+    const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100 - dragOffset.y));
     
     if (selectedElement === "image") {
-      setImageSettings(prev => ({ ...prev, x: newX, y: newY }));
+      setImageSettings(prev => ({ ...prev, x, y }));
     } else {
-      updateTextBlock(selectedElement, { x: newX, y: newY });
+      updateTextBlock(selectedElement, { x, y });
     }
-  }, [isDragging, selectedElement, dragOffset]);
-
-  const handleMouseUp = useCallback(() => {
+  };
+  
+  const handleMouseUp = () => {
     setIsDragging(false);
-  }, []);
-
-  // Event listeners para drag
-  useEffect(() => {
-    if (isDragging) {
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
-      window.addEventListener("touchmove", handleMouseMove);
-      window.addEventListener("touchend", handleMouseUp);
-    }
+  };
+  
+  // Touch events
+  const handleTouchStart = (e: React.TouchEvent, elementId: string) => {
+    const touch = e.touches[0];
+    setSelectedElement(elementId);
+    setIsDragging(true);
     
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-      window.removeEventListener("touchmove", handleMouseMove);
-      window.removeEventListener("touchend", handleMouseUp);
-    };
-  }, [isDragging, handleMouseMove, handleMouseUp]);
-
-  // Ajustar tamanho com botões +/-
-  const adjustImageSize = (delta: number) => {
-    setImageSettings(prev => ({
-      ...prev,
-      height: Math.max(20, Math.min(100, prev.height + delta))
-    }));
-  };
-
-  const adjustFontSize = (id: string, delta: number) => {
-    const block = textBlocks.find(b => b.id === id);
-    if (block) {
-      updateTextBlock(id, { 
-        fontSize: Math.max(12, Math.min(72, block.fontSize + delta)) 
-      });
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    const x = ((touch.clientX - rect.left) / rect.width) * 100;
+    const y = ((touch.clientY - rect.top) / rect.height) * 100;
+    
+    if (elementId === "image") {
+      setDragOffset({ x: x - imageSettings.x, y: y - imageSettings.y });
+    } else {
+      const block = textBlocks.find(b => b.id === elementId);
+      if (block) {
+        setDragOffset({ x: x - block.x, y: y - block.y });
+      }
     }
   };
-
-  // Download usando Canvas API
+  
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || !selectedElement) return;
+    
+    const touch = e.touches[0];
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    const x = Math.max(0, Math.min(100, ((touch.clientX - rect.left) / rect.width) * 100 - dragOffset.x));
+    const y = Math.max(0, Math.min(100, ((touch.clientY - rect.top) / rect.height) * 100 - dragOffset.y));
+    
+    if (selectedElement === "image") {
+      setImageSettings(prev => ({ ...prev, x, y }));
+    } else {
+      updateTextBlock(selectedElement, { x, y });
+    }
+  };
+  
+  // Download
   const handleDownload = async (withText: boolean) => {
+    if (downloading) return;
     setDownloading(true);
     
     try {
@@ -246,54 +292,70 @@ export default function SlideComposerNew({
       // 2. Desenhar imagem (se existir)
       if (imageUrl) {
         const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(imageUrl)}`;
-        const img = new Image();
-        img.crossOrigin = "anonymous";
         
-        await new Promise<void>((resolve, reject) => {
-          img.onload = () => resolve();
-          img.onerror = () => reject(new Error("Falha ao carregar imagem"));
-          img.src = proxyUrl;
-        });
-        
-        // Calcular posição e tamanho da imagem
-        const imgX = (imageSettings.x / 100) * canvas.width;
-        const imgY = (imageSettings.y / 100) * canvas.height;
-        const imgWidth = (imageSettings.width / 100) * canvas.width;
-        const imgHeight = (imageSettings.height / 100) * canvas.height;
-        
-        // Desenhar imagem com cover (manter proporção)
-        const imgRatio = img.width / img.height;
-        const frameRatio = imgWidth / imgHeight;
-        
-        let drawWidth, drawHeight, drawX, drawY;
-        
-        if (imgRatio > frameRatio) {
-          drawHeight = imgHeight;
-          drawWidth = imgHeight * imgRatio;
-          drawX = imgX + (imgWidth - drawWidth) / 2;
-          drawY = imgY;
-        } else {
-          drawWidth = imgWidth;
-          drawHeight = imgWidth / imgRatio;
-          drawX = imgX;
-          drawY = imgY + (imgHeight - drawHeight) / 2;
+        try {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => {
+              console.log("Imagem carregada:", img.width, "x", img.height);
+              resolve();
+            };
+            img.onerror = (err) => {
+              console.error("Erro ao carregar imagem:", err);
+              reject(new Error("Falha ao carregar imagem"));
+            };
+            img.src = proxyUrl;
+          });
+          
+          // Calcular posição e tamanho da imagem
+          const imgX = (imageSettings.x / 100) * canvas.width;
+          const imgY = (imageSettings.y / 100) * canvas.height;
+          const imgWidth = (imageSettings.width / 100) * canvas.width;
+          const imgHeight = (imageSettings.height / 100) * canvas.height;
+          
+          console.log("Desenhando imagem em:", imgX, imgY, imgWidth, imgHeight);
+          
+          // Desenhar imagem com cover (manter proporção)
+          const imgRatio = img.width / img.height;
+          const frameRatio = imgWidth / imgHeight;
+          
+          let drawWidth, drawHeight, drawX, drawY;
+          
+          if (imgRatio > frameRatio) {
+            drawHeight = imgHeight;
+            drawWidth = imgHeight * imgRatio;
+            drawX = imgX + (imgWidth - drawWidth) / 2;
+            drawY = imgY;
+          } else {
+            drawWidth = imgWidth;
+            drawHeight = imgWidth / imgRatio;
+            drawX = imgX;
+            drawY = imgY + (imgHeight - drawHeight) / 2;
+          }
+          
+          // Clip para a área da imagem
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(imgX, imgY, imgWidth, imgHeight);
+          ctx.clip();
+          ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+          ctx.restore();
+          
+        } catch (imgError) {
+          console.error("Erro ao processar imagem:", imgError);
+          toast.error("Erro ao carregar imagem, continuando sem ela");
         }
-        
-        // Clip para a área da imagem
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(imgX, imgY, imgWidth, imgHeight);
-        ctx.clip();
-        ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
-        ctx.restore();
       }
       
       // 3. Desenhar textos (se withText)
       if (withText) {
+        const scale = canvas.width / 360; // Escala do preview para o canvas
+        
         for (const block of textBlocks) {
           if (!block.text.trim()) continue;
           
-          const scale = canvas.width / 360; // Escala do preview para o canvas
           const fontSize = block.fontSize * scale;
           
           ctx.font = `${block.fontWeight} ${fontSize}px ${block.fontFamily}, sans-serif`;
@@ -301,20 +363,15 @@ export default function SlideComposerNew({
           ctx.textAlign = block.textAlign;
           ctx.textBaseline = "middle";
           
-          // Sombra
-          if (block.shadowEnabled) {
-            ctx.shadowColor = block.shadowColor;
-            ctx.shadowBlur = block.shadowBlur * scale;
-            ctx.shadowOffsetX = 2 * scale;
-            ctx.shadowOffsetY = 2 * scale;
-          }
-          
           // Posição do texto
-          const textX = block.textAlign === "center" 
-            ? canvas.width / 2 
-            : block.textAlign === "right"
-              ? canvas.width - 40
-              : 40;
+          let textX: number;
+          if (block.textAlign === "center") {
+            textX = canvas.width / 2;
+          } else if (block.textAlign === "right") {
+            textX = canvas.width - 40;
+          } else {
+            textX = 40;
+          }
           const textY = (block.y / 100) * canvas.height;
           
           // Quebrar texto em linhas
@@ -335,11 +392,63 @@ export default function SlideComposerNew({
           }
           if (currentLine) lines.push(currentLine);
           
-          // Desenhar linhas
-          const lineHeight = fontSize * 1.3;
+          // Calcular altura total
+          const lineHeight = fontSize * block.lineHeight;
           const totalHeight = lines.length * lineHeight;
           const startY = textY - totalHeight / 2 + lineHeight / 2;
           
+          // Desenhar fundo do texto (se habilitado)
+          if (block.bgEnabled) {
+            ctx.save();
+            ctx.fillStyle = block.bgColor;
+            const padding = block.bgPadding * scale;
+            
+            lines.forEach((line, index) => {
+              const metrics = ctx.measureText(line);
+              const lineY = startY + index * lineHeight;
+              let bgX = textX - metrics.width / 2 - padding;
+              if (block.textAlign === "left") bgX = textX - padding;
+              if (block.textAlign === "right") bgX = textX - metrics.width - padding;
+              
+              ctx.fillRect(
+                bgX,
+                lineY - fontSize / 2 - padding / 2,
+                metrics.width + padding * 2,
+                fontSize + padding
+              );
+            });
+            ctx.restore();
+          }
+          
+          // Configurar sombra
+          if (block.shadowEnabled) {
+            ctx.shadowColor = block.shadowColor;
+            ctx.shadowBlur = block.shadowBlur * scale;
+            ctx.shadowOffsetX = block.shadowOffsetX * scale;
+            ctx.shadowOffsetY = block.shadowOffsetY * scale;
+          }
+          
+          // Configurar glow
+          if (block.glowEnabled) {
+            ctx.shadowColor = block.glowColor;
+            ctx.shadowBlur = block.glowIntensity * scale;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+          }
+          
+          // Desenhar borda/contorno primeiro
+          if (block.borderEnabled) {
+            ctx.strokeStyle = block.borderColor;
+            ctx.lineWidth = block.borderWidth * scale;
+            ctx.lineJoin = "round";
+            
+            lines.forEach((line, index) => {
+              ctx.strokeText(line, textX, startY + index * lineHeight);
+            });
+          }
+          
+          // Desenhar texto
+          ctx.fillStyle = block.color;
           lines.forEach((line, index) => {
             ctx.fillText(line, textX, startY + index * lineHeight);
           });
@@ -347,6 +456,8 @@ export default function SlideComposerNew({
           // Resetar sombra
           ctx.shadowColor = "transparent";
           ctx.shadowBlur = 0;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
         }
       }
       
@@ -370,212 +481,578 @@ export default function SlideComposerNew({
       setDownloading(false);
     }
   };
-
-  // Texto selecionado
-  const selectedTextBlock = textBlocks.find(b => b.id === selectedElement);
-
+  
   return (
-    <div className="w-full max-w-6xl mx-auto">
-      {/* Layout principal */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
-        {/* Preview Interativo - Lado Esquerdo */}
-        <div className="flex flex-col items-center justify-center bg-muted/30 rounded-xl p-4">
-          <div 
+    <div className="w-full max-w-6xl mx-auto p-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Preview */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold flex items-center gap-2">
+              <Move className="w-4 h-4" />
+              Preview (arraste para mover)
+            </h3>
+            <div className="text-xs text-muted-foreground">
+              Slide {slideIndex + 1}
+            </div>
+          </div>
+          
+          <div
             ref={canvasRef}
-            className="relative aspect-[4/5] rounded-lg overflow-hidden cursor-crosshair select-none border-2 border-border shadow-lg"
-            style={{ 
-              backgroundColor,
-              width: "100%",
-              maxWidth: "400px",
-              touchAction: "none"
-            }}
-            onClick={() => setSelectedElement(null)}
+            className="relative w-full aspect-[4/5] rounded-lg overflow-hidden cursor-crosshair select-none"
+            style={{ backgroundColor }}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleMouseUp}
           >
-        {/* Imagem */}
-        {imageUrl && (
-          <div
-            className={`absolute cursor-move ${selectedElement === "image" ? "ring-2 ring-blue-500" : ""}`}
-            style={{
-              left: `${imageSettings.x}%`,
-              top: `${imageSettings.y}%`,
-              width: `${imageSettings.width}%`,
-              height: `${imageSettings.height}%`,
-              overflow: "hidden",
-            }}
-            onMouseDown={(e) => handleMouseDown(e, "image")}
-            onTouchStart={(e) => handleMouseDown(e, "image")}
-          >
-            <img
-              src={imageUrl}
-              alt=""
-              className="w-full h-full object-cover pointer-events-none"
-              draggable={false}
-            />
-          </div>
-        )}
-        
-        {/* Textos */}
-        {textBlocks.map((block) => (
-          <div
-            key={block.id}
-            className={`absolute cursor-move px-2 ${selectedElement === block.id ? "ring-2 ring-purple-500" : ""}`}
-            style={{
-              left: block.textAlign === "center" ? "50%" : block.textAlign === "right" ? "auto" : "5%",
-              right: block.textAlign === "right" ? "5%" : "auto",
-              top: `${block.y}%`,
-              transform: block.textAlign === "center" ? "translate(-50%, -50%)" : "translateY(-50%)",
-              color: block.color,
-              fontSize: `${block.fontSize}px`,
-              fontFamily: block.fontFamily,
-              fontWeight: block.fontWeight,
-              textAlign: block.textAlign,
-              textShadow: block.shadowEnabled 
-                ? `2px 2px ${block.shadowBlur}px ${block.shadowColor}` 
-                : "none",
-              maxWidth: "90%",
-              wordWrap: "break-word",
-            }}
-            onMouseDown={(e) => handleMouseDown(e, block.id)}
-            onTouchStart={(e) => handleMouseDown(e, block.id)}
-          >
-            {block.text}
-          </div>
-        ))}
-          </div>
-        </div>
-
-        {/* Controles - Lado Direito */}
-        <div className="lg:w-80 space-y-4">
-        {/* Controles da Imagem */}
-        {selectedElement === "image" && imageUrl && (
-          <div className="p-3 bg-muted rounded-lg space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium flex items-center gap-2">
-                <ImageIcon className="h-4 w-4" />
-                Tamanho da Imagem
-              </span>
-              <div className="flex items-center gap-2">
-                <Button size="sm" variant="outline" onClick={() => adjustImageSize(-5)}>
-                  <Minus className="h-4 w-4" />
-                </Button>
-                <span className="w-12 text-center">{imageSettings.height}%</span>
-                <Button size="sm" variant="outline" onClick={() => adjustImageSize(5)}>
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Controles do Texto Selecionado */}
-        {selectedTextBlock && (
-          <div className="p-3 bg-muted rounded-lg space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium flex items-center gap-2">
-                <Type className="h-4 w-4" />
-                Texto Selecionado
-              </span>
-              <Button 
-                size="sm" 
-                variant="destructive" 
-                onClick={() => deleteTextBlock(selectedTextBlock.id)}
+            {/* Imagem */}
+            {imageUrl && (
+              <div
+                className={`absolute cursor-move ${selectedElement === "image" ? "ring-2 ring-primary ring-offset-2" : ""}`}
+                style={{
+                  left: `${imageSettings.x}%`,
+                  top: `${imageSettings.y}%`,
+                  width: `${imageSettings.width}%`,
+                  height: `${imageSettings.height}%`,
+                }}
+                onMouseDown={(e) => handleMouseDown(e, "image")}
+                onTouchStart={(e) => handleTouchStart(e, "image")}
               >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            {/* Input de texto */}
-            <Input
-              value={selectedTextBlock.text}
-              onChange={(e) => updateTextBlock(selectedTextBlock.id, { text: e.target.value })}
-              placeholder="Digite o texto..."
-            />
-            
-            {/* Tamanho da fonte */}
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Tamanho</span>
-              <div className="flex items-center gap-2">
-                <Button size="sm" variant="outline" onClick={() => adjustFontSize(selectedTextBlock.id, -2)}>
-                  <Minus className="h-4 w-4" />
-                </Button>
-                <span className="w-12 text-center">{selectedTextBlock.fontSize}px</span>
-                <Button size="sm" variant="outline" onClick={() => adjustFontSize(selectedTextBlock.id, 2)}>
-                  <Plus className="h-4 w-4" />
-                </Button>
+                <img
+                  src={imageUrl}
+                  alt="Slide"
+                  className="w-full h-full object-cover pointer-events-none"
+                  draggable={false}
+                />
               </div>
-            </div>
+            )}
             
-            {/* Cor do texto */}
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Cor</span>
-              <input
-                type="color"
-                value={selectedTextBlock.color}
-                onChange={(e) => updateTextBlock(selectedTextBlock.id, { color: e.target.value })}
-                className="w-10 h-8 rounded cursor-pointer"
-              />
-            </div>
-            
-            {/* Alinhamento */}
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Alinhamento</span>
-              <div className="flex gap-1">
-                {(["left", "center", "right"] as const).map((align) => (
-                  <Button
-                    key={align}
-                    size="sm"
-                    variant={selectedTextBlock.textAlign === align ? "default" : "outline"}
-                    onClick={() => updateTextBlock(selectedTextBlock.id, { textAlign: align })}
-                  >
-                    {align === "left" ? "⬅" : align === "center" ? "⬌" : "➡"}
-                  </Button>
-                ))}
+            {/* Textos */}
+            {textBlocks.map((block) => (
+              <div
+                key={block.id}
+                className={`absolute cursor-move px-2 py-1 ${selectedElement === block.id ? "ring-2 ring-primary ring-offset-2" : ""}`}
+                style={{
+                  left: block.textAlign === "center" ? "50%" : block.textAlign === "right" ? "auto" : `${block.x}%`,
+                  right: block.textAlign === "right" ? "5%" : "auto",
+                  top: `${block.y}%`,
+                  transform: block.textAlign === "center" ? "translateX(-50%)" : "none",
+                  fontSize: `${block.fontSize}px`,
+                  fontFamily: block.fontFamily,
+                  fontWeight: block.fontWeight,
+                  color: block.color,
+                  textAlign: block.textAlign,
+                  textShadow: block.shadowEnabled 
+                    ? `${block.shadowOffsetX}px ${block.shadowOffsetY}px ${block.shadowBlur}px ${block.shadowColor}`
+                    : block.glowEnabled
+                      ? `0 0 ${block.glowIntensity}px ${block.glowColor}`
+                      : "none",
+                  WebkitTextStroke: block.borderEnabled ? `${block.borderWidth}px ${block.borderColor}` : "none",
+                  letterSpacing: `${block.letterSpacing}px`,
+                  lineHeight: block.lineHeight,
+                  backgroundColor: block.bgEnabled ? block.bgColor : "transparent",
+                  padding: block.bgEnabled ? `${block.bgPadding}px` : "0",
+                  maxWidth: "90%",
+                }}
+                onMouseDown={(e) => handleMouseDown(e, block.id)}
+                onTouchStart={(e) => handleTouchStart(e, block.id)}
+              >
+                {block.text}
               </div>
-            </div>
+            ))}
           </div>
-        )}
-
-        {/* Botão Adicionar Texto */}
-        <Button 
-          variant="outline" 
-          className="w-full"
-          onClick={addTextBlock}
-        >
-          <PlusCircle className="h-4 w-4 mr-2" />
-          Adicionar Texto
-        </Button>
-
-        {/* Cor de Fundo */}
-        <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-          <span className="text-sm font-medium">Cor de Fundo</span>
-          <input
-            type="color"
-            value={backgroundColor}
-            onChange={(e) => setBackgroundColor(e.target.value)}
-            className="w-10 h-8 rounded cursor-pointer"
-          />
+          
+          {/* Botões de download */}
+          <div className="flex gap-2">
+            <Button
+              onClick={() => handleDownload(true)}
+              disabled={downloading}
+              className="flex-1"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Com Texto
+            </Button>
+            <Button
+              onClick={() => handleDownload(false)}
+              disabled={downloading}
+              variant="outline"
+              className="flex-1"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Sem Texto
+            </Button>
+          </div>
         </div>
-
-        {/* Botões de Download */}
-        <div className="flex gap-2">
-          <Button 
-            className="flex-1"
-            onClick={() => handleDownload(true)}
-            disabled={downloading}
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Com Texto
-          </Button>
-          <Button 
-            variant="outline"
-            className="flex-1"
-            onClick={() => handleDownload(false)}
-            disabled={downloading}
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Sem Texto
-          </Button>
-        </div>
+        
+        {/* Controles */}
+        <div className="space-y-4">
+          {/* Seletor de elemento */}
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant={selectedElement === "image" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedElement("image")}
+            >
+              <ImageIcon className="w-4 h-4 mr-1" />
+              Imagem
+            </Button>
+            {textBlocks.map((block, i) => (
+              <Button
+                key={block.id}
+                variant={selectedElement === block.id ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedElement(block.id)}
+              >
+                <Type className="w-4 h-4 mr-1" />
+                Texto {i + 1}
+              </Button>
+            ))}
+            <Button variant="ghost" size="sm" onClick={addTextBlock}>
+              <Plus className="w-4 h-4" />
+            </Button>
+          </div>
+          
+          {/* Controles de Imagem */}
+          {selectedElement === "image" && (
+            <div className="space-y-4 p-4 bg-muted/50 rounded-lg">
+              <h4 className="font-medium flex items-center gap-2">
+                <ImageIcon className="w-4 h-4" />
+                Configurações da Imagem
+              </h4>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs">Posição X: {imageSettings.x.toFixed(0)}%</Label>
+                  <Slider
+                    value={[imageSettings.x]}
+                    onValueChange={([v]) => setImageSettings(prev => ({ ...prev, x: v }))}
+                    min={0}
+                    max={100}
+                    step={1}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Posição Y: {imageSettings.y.toFixed(0)}%</Label>
+                  <Slider
+                    value={[imageSettings.y]}
+                    onValueChange={([v]) => setImageSettings(prev => ({ ...prev, y: v }))}
+                    min={0}
+                    max={100}
+                    step={1}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Largura: {imageSettings.width}%</Label>
+                  <Slider
+                    value={[imageSettings.width]}
+                    onValueChange={([v]) => setImageSettings(prev => ({ ...prev, width: v }))}
+                    min={10}
+                    max={100}
+                    step={1}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Altura: {imageSettings.height}%</Label>
+                  <Slider
+                    value={[imageSettings.height]}
+                    onValueChange={([v]) => setImageSettings(prev => ({ ...prev, height: v }))}
+                    min={10}
+                    max={100}
+                    step={1}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Controles de Texto */}
+          {selectedTextBlock && (
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="basico">Básico</TabsTrigger>
+                <TabsTrigger value="cores">Cores</TabsTrigger>
+                <TabsTrigger value="avancado">Avançado</TabsTrigger>
+              </TabsList>
+              
+              {/* Aba Básico */}
+              <TabsContent value="basico" className="space-y-4 p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium">Texto {textBlocks.findIndex(b => b.id === selectedTextBlock.id) + 1}</h4>
+                  {textBlocks.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeTextBlock(selectedTextBlock.id)}
+                    >
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  )}
+                </div>
+                
+                <div>
+                  <Label>Texto</Label>
+                  <textarea
+                    value={selectedTextBlock.text}
+                    onChange={(e) => updateTextBlock(selectedTextBlock.id, { text: e.target.value })}
+                    className="w-full mt-1 p-2 rounded-md border bg-background text-sm min-h-[80px]"
+                  />
+                </div>
+                
+                <div>
+                  <Label className="text-xs">Tamanho: {selectedTextBlock.fontSize}px</Label>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => updateTextBlock(selectedTextBlock.id, { fontSize: Math.max(12, selectedTextBlock.fontSize - 2) })}
+                    >
+                      <Minus className="w-3 h-3" />
+                    </Button>
+                    <Slider
+                      value={[selectedTextBlock.fontSize]}
+                      onValueChange={([v]) => updateTextBlock(selectedTextBlock.id, { fontSize: v })}
+                      min={12}
+                      max={72}
+                      step={1}
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => updateTextBlock(selectedTextBlock.id, { fontSize: Math.min(72, selectedTextBlock.fontSize + 2) })}
+                    >
+                      <Plus className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+                
+                <div>
+                  <Label>Alinhamento</Label>
+                  <div className="flex gap-1 mt-1">
+                    <Button
+                      variant={selectedTextBlock.textAlign === "left" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => updateTextBlock(selectedTextBlock.id, { textAlign: "left" })}
+                    >
+                      <AlignLeft className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant={selectedTextBlock.textAlign === "center" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => updateTextBlock(selectedTextBlock.id, { textAlign: "center" })}
+                    >
+                      <AlignCenter className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant={selectedTextBlock.textAlign === "right" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => updateTextBlock(selectedTextBlock.id, { textAlign: "right" })}
+                    >
+                      <AlignRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+                
+                <div>
+                  <Label>Fonte</Label>
+                  <select
+                    value={selectedTextBlock.fontFamily}
+                    onChange={(e) => updateTextBlock(selectedTextBlock.id, { fontFamily: e.target.value })}
+                    className="w-full mt-1 p-2 rounded-md border bg-background text-sm"
+                  >
+                    {FONT_FAMILIES.map(font => (
+                      <option key={font} value={font}>{font}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <Label>Peso</Label>
+                  <div className="flex gap-1 mt-1">
+                    <Button
+                      variant={selectedTextBlock.fontWeight === "normal" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => updateTextBlock(selectedTextBlock.id, { fontWeight: "normal" })}
+                    >
+                      Normal
+                    </Button>
+                    <Button
+                      variant={selectedTextBlock.fontWeight === "bold" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => updateTextBlock(selectedTextBlock.id, { fontWeight: "bold" })}
+                    >
+                      <Bold className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs">Posição Y: {selectedTextBlock.y.toFixed(0)}%</Label>
+                    <Slider
+                      value={[selectedTextBlock.y]}
+                      onValueChange={([v]) => updateTextBlock(selectedTextBlock.id, { y: v })}
+                      min={5}
+                      max={95}
+                      step={1}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Espaçamento: {selectedTextBlock.letterSpacing}px</Label>
+                    <Slider
+                      value={[selectedTextBlock.letterSpacing]}
+                      onValueChange={([v]) => updateTextBlock(selectedTextBlock.id, { letterSpacing: v })}
+                      min={-5}
+                      max={20}
+                      step={0.5}
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <Label className="text-xs">Altura da linha: {selectedTextBlock.lineHeight.toFixed(1)}</Label>
+                  <Slider
+                    value={[selectedTextBlock.lineHeight]}
+                    onValueChange={([v]) => updateTextBlock(selectedTextBlock.id, { lineHeight: v })}
+                    min={0.8}
+                    max={2.5}
+                    step={0.1}
+                  />
+                </div>
+              </TabsContent>
+              
+              {/* Aba Cores */}
+              <TabsContent value="cores" className="space-y-4 p-4 bg-muted/50 rounded-lg">
+                <div>
+                  <Label>Cor do Texto</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Input
+                      type="color"
+                      value={selectedTextBlock.color}
+                      onChange={(e) => updateTextBlock(selectedTextBlock.id, { color: e.target.value })}
+                      className="w-12 h-8 p-0 border-0"
+                    />
+                    <Input
+                      value={selectedTextBlock.color}
+                      onChange={(e) => updateTextBlock(selectedTextBlock.id, { color: e.target.value })}
+                      className="flex-1 h-8"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <Label>Cor de Fundo (Slide)</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Input
+                      type="color"
+                      value={backgroundColor}
+                      onChange={(e) => setBackgroundColor(e.target.value)}
+                      className="w-12 h-8 p-0 border-0"
+                    />
+                    <Input
+                      value={backgroundColor}
+                      onChange={(e) => setBackgroundColor(e.target.value)}
+                      className="flex-1 h-8"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <Label>Presets de Cores</Label>
+                  <div className="grid grid-cols-4 gap-2 mt-2">
+                    {COLOR_PRESETS.map((preset) => (
+                      <button
+                        key={preset.name}
+                        onClick={() => {
+                          updateTextBlock(selectedTextBlock.id, { color: preset.text });
+                          setBackgroundColor(preset.bg);
+                        }}
+                        className="p-2 rounded border hover:border-primary transition-colors"
+                        style={{ backgroundColor: preset.bg }}
+                      >
+                        <span style={{ color: preset.text }} className="text-xs font-bold">
+                          {preset.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <Label>Fundo do Texto</Label>
+                  <Switch
+                    checked={selectedTextBlock.bgEnabled}
+                    onCheckedChange={(v) => updateTextBlock(selectedTextBlock.id, { bgEnabled: v })}
+                  />
+                </div>
+                
+                {selectedTextBlock.bgEnabled && (
+                  <div className="space-y-2 pl-4 border-l-2 border-primary/20">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="color"
+                        value={selectedTextBlock.bgColor}
+                        onChange={(e) => updateTextBlock(selectedTextBlock.id, { bgColor: e.target.value })}
+                        className="w-12 h-8 p-0 border-0"
+                      />
+                      <Input
+                        value={selectedTextBlock.bgColor}
+                        onChange={(e) => updateTextBlock(selectedTextBlock.id, { bgColor: e.target.value })}
+                        className="flex-1 h-8"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Padding: {selectedTextBlock.bgPadding}px</Label>
+                      <Slider
+                        value={[selectedTextBlock.bgPadding]}
+                        onValueChange={([v]) => updateTextBlock(selectedTextBlock.id, { bgPadding: v })}
+                        min={0}
+                        max={32}
+                        step={1}
+                      />
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+              
+              {/* Aba Avançado */}
+              <TabsContent value="avancado" className="space-y-4 p-4 bg-muted/50 rounded-lg">
+                {/* Sombra */}
+                <div className="flex items-center justify-between">
+                  <Label>Sombra</Label>
+                  <Switch
+                    checked={selectedTextBlock.shadowEnabled}
+                    onCheckedChange={(v) => updateTextBlock(selectedTextBlock.id, { shadowEnabled: v, glowEnabled: v ? false : selectedTextBlock.glowEnabled })}
+                  />
+                </div>
+                
+                {selectedTextBlock.shadowEnabled && (
+                  <div className="space-y-2 pl-4 border-l-2 border-primary/20">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="color"
+                        value={selectedTextBlock.shadowColor}
+                        onChange={(e) => updateTextBlock(selectedTextBlock.id, { shadowColor: e.target.value })}
+                        className="w-12 h-8 p-0 border-0"
+                      />
+                      <span className="text-xs text-muted-foreground">Cor da sombra</span>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Blur: {selectedTextBlock.shadowBlur}px</Label>
+                      <Slider
+                        value={[selectedTextBlock.shadowBlur]}
+                        onValueChange={([v]) => updateTextBlock(selectedTextBlock.id, { shadowBlur: v })}
+                        min={0}
+                        max={20}
+                        step={1}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs">Offset X: {selectedTextBlock.shadowOffsetX}px</Label>
+                        <Slider
+                          value={[selectedTextBlock.shadowOffsetX]}
+                          onValueChange={([v]) => updateTextBlock(selectedTextBlock.id, { shadowOffsetX: v })}
+                          min={-10}
+                          max={10}
+                          step={1}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Offset Y: {selectedTextBlock.shadowOffsetY}px</Label>
+                        <Slider
+                          value={[selectedTextBlock.shadowOffsetY]}
+                          onValueChange={([v]) => updateTextBlock(selectedTextBlock.id, { shadowOffsetY: v })}
+                          min={-10}
+                          max={10}
+                          step={1}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Borda/Contorno */}
+                <div className="flex items-center justify-between">
+                  <Label>Contorno</Label>
+                  <Switch
+                    checked={selectedTextBlock.borderEnabled}
+                    onCheckedChange={(v) => updateTextBlock(selectedTextBlock.id, { borderEnabled: v })}
+                  />
+                </div>
+                
+                {selectedTextBlock.borderEnabled && (
+                  <div className="space-y-2 pl-4 border-l-2 border-primary/20">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="color"
+                        value={selectedTextBlock.borderColor}
+                        onChange={(e) => updateTextBlock(selectedTextBlock.id, { borderColor: e.target.value })}
+                        className="w-12 h-8 p-0 border-0"
+                      />
+                      <span className="text-xs text-muted-foreground">Cor do contorno</span>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Espessura: {selectedTextBlock.borderWidth}px</Label>
+                      <Slider
+                        value={[selectedTextBlock.borderWidth]}
+                        onValueChange={([v]) => updateTextBlock(selectedTextBlock.id, { borderWidth: v })}
+                        min={1}
+                        max={8}
+                        step={0.5}
+                      />
+                    </div>
+                  </div>
+                )}
+                
+                {/* Glow */}
+                <div className="flex items-center justify-between">
+                  <Label>Efeito Glow</Label>
+                  <Switch
+                    checked={selectedTextBlock.glowEnabled}
+                    onCheckedChange={(v) => updateTextBlock(selectedTextBlock.id, { glowEnabled: v, shadowEnabled: v ? false : selectedTextBlock.shadowEnabled })}
+                  />
+                </div>
+                
+                {selectedTextBlock.glowEnabled && (
+                  <div className="space-y-2 pl-4 border-l-2 border-primary/20">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="color"
+                        value={selectedTextBlock.glowColor}
+                        onChange={(e) => updateTextBlock(selectedTextBlock.id, { glowColor: e.target.value })}
+                        className="w-12 h-8 p-0 border-0"
+                      />
+                      <span className="text-xs text-muted-foreground">Cor do glow</span>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Intensidade: {selectedTextBlock.glowIntensity}px</Label>
+                      <Slider
+                        value={[selectedTextBlock.glowIntensity]}
+                        onValueChange={([v]) => updateTextBlock(selectedTextBlock.id, { glowIntensity: v })}
+                        min={1}
+                        max={30}
+                        step={1}
+                      />
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          )}
+          
+          {/* Mensagem quando nada selecionado */}
+          {!selectedElement && (
+            <div className="p-8 text-center text-muted-foreground bg-muted/50 rounded-lg">
+              <Move className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p>Clique em um elemento no preview para editar</p>
+              <p className="text-xs mt-1">Ou arraste para reposicionar</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
