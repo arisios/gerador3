@@ -294,9 +294,3 @@
 - [x] Preview no editor mostra layout diferente do download - CORRIGIDO: getTextStyles() agora posiciona texto baseado no template
 - [x] Download veio sem imagem - RESOLVIDO: imagem está aparecendo corretamente
 - [x] Unificar renderização para que preview e download sejam idênticos - CORRIGIDO
-
-## Refatoração SlideComposer (18/12/2024)
-- [x] Usar SlideRenderer para preview no SlideComposer (em vez de HTML/CSS próprio)
-- [x] Usar downloadSlide do SlideRenderer para download (em vez de implementação própria)
-- [x] Garantir que preview e download sejam idênticos ao preview principal
-- [x] Manter funcionalidade de edição de cores e estilos
