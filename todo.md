@@ -250,3 +250,9 @@
 - [x] Garantir que texto nunca comece acima do padding mínimo
 - [x] Download do SlideComposer usa função unificada
 - [x] Preview, Editor Visual e Download mostram a mesma coisa
+
+## Bug SlideComposer - Edição não funciona (18/12/2024)
+- [x] Controles do SlideComposer não atualizam o preview em tempo real - CORRIGIDO: removido useEffect que resetava o estado
+- [x] Preview parece uma foto estática que não responde às edições - CORRIGIDO: preview customizado usa localStyle
+- [x] Corrigir conexão entre controles e preview - CORRIGIDO: download agora usa customColors
+- [x] Download aplica as cores customizadas do editor - CORRIGIDO: passa textColor e backgroundColor para downloadSlide

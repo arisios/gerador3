@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { designTemplates, colorPalettes } from "../../../shared/designTemplates";
-import { SlidePreview, downloadSlide } from "./SlideRenderer";
+import { downloadSlide } from "./SlideRenderer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,7 +49,7 @@ export interface SlideStyle {
 const DEFAULT_STYLE: SlideStyle = {
   showText: true,
   textAlign: "center",
-  positionY: 80,
+  positionY: 20,
   fontSize: 32,
   fontFamily: "Inter",
   textColor: "#FFFFFF",
@@ -72,25 +72,14 @@ const DEFAULT_STYLE: SlideStyle = {
 };
 
 const COLOR_PRESETS = [
-  { name: "Branco", text: "#FFFFFF", bg: "#000000" },
-  { name: "Neon Verde", text: "#39FF14", bg: "#000000" },
-  { name: "Neon Rosa", text: "#FF10F0", bg: "#000000" },
-  { name: "Amarelo", text: "#FFFF00", bg: "#000000" },
-  { name: "Laranja", text: "#FF6B00", bg: "#000000" },
-  { name: "Azul", text: "#00D4FF", bg: "#000000" },
-  { name: "Roxo", text: "#A855F7", bg: "#000000" },
-  { name: "Vermelho", text: "#FF0000", bg: "#000000" },
-];
-
-const FONT_OPTIONS = [
-  "Inter",
-  "Roboto",
-  "Montserrat",
-  "Poppins",
-  "Oswald",
-  "Playfair Display",
-  "Bebas Neue",
-  "Anton",
+  { name: "Branco", text: "#FFFFFF", bg: "#1a1a2e" },
+  { name: "Neon Verde", text: "#39FF14", bg: "#0a0a0a" },
+  { name: "Neon Rosa", text: "#FF10F0", bg: "#0a0a0a" },
+  { name: "Amarelo", text: "#FFFF00", bg: "#0a0a0a" },
+  { name: "Laranja", text: "#FF6B00", bg: "#0a0a0a" },
+  { name: "Azul", text: "#00D4FF", bg: "#0a0a0a" },
+  { name: "Roxo", text: "#A855F7", bg: "#1a1a2e" },
+  { name: "Vermelho", text: "#FF0000", bg: "#0a0a0a" },
 ];
 
 interface SlideComposerProps {
@@ -122,13 +111,32 @@ export default function SlideComposer({
   const template = templateId ? designTemplates.find(t => t.id === templateId) : designTemplates[0];
   const palette = paletteId ? colorPalettes.find(p => p.id === paletteId) : null;
   
-  const [localStyle, setLocalStyle] = useState<SlideStyle>(style);
+  // Inicializar localStyle com valores do template/paleta
+  const getInitialStyle = useCallback((): SlideStyle => {
+    const colors = {
+      background: palette?.colors.background || template?.colors.background || "#1a1a2e",
+      text: palette?.colors.text || template?.colors.text || "#FFFFFF",
+    };
+    
+    return {
+      ...DEFAULT_STYLE,
+      backgroundColor: colors.background,
+      textColor: colors.text,
+    };
+  }, [template, palette]);
+  
+  const [localStyle, setLocalStyle] = useState<SlideStyle>(getInitialStyle);
   const [downloading, setDownloading] = useState(false);
   const [activeTab, setActiveTab] = useState("basico");
+  const [initialized, setInitialized] = useState(false);
 
+  // Inicializar apenas uma vez ou quando template/paleta mudar
   useEffect(() => {
-    setLocalStyle(style);
-  }, [style]);
+    if (!initialized) {
+      setLocalStyle(getInitialStyle());
+      setInitialized(true);
+    }
+  }, [getInitialStyle, initialized]);
 
   const updateStyle = useCallback((updates: Partial<SlideStyle>) => {
     const newStyle = { ...localStyle, ...updates };
@@ -154,8 +162,9 @@ export default function SlideComposer({
   };
 
   const resetStyle = () => {
-    setLocalStyle(DEFAULT_STYLE);
-    onStyleChange(DEFAULT_STYLE);
+    const initial = getInitialStyle();
+    setLocalStyle(initial);
+    onStyleChange(initial);
     toast.success("Estilo resetado!");
   };
 
@@ -175,6 +184,11 @@ export default function SlideComposer({
         paletteId: paletteId,
         logoUrl: logoUrl,
         showText: withText,
+        // Passar as cores customizadas do editor
+        customColors: {
+          background: localStyle.backgroundColor,
+          text: localStyle.textColor,
+        },
         filename: `slide_${slideIndex + 1}${withText ? '_com_texto' : '_sem_texto'}.png`
       });
       toast.success("Download iniciado!");
@@ -186,18 +200,115 @@ export default function SlideComposer({
     }
   };
 
+  // Calcular estilos do texto baseados no localStyle
+  const getTextStyles = (): React.CSSProperties => {
+    const baseStyles: React.CSSProperties = {
+      position: 'absolute',
+      left: localStyle.padding,
+      right: localStyle.padding,
+      top: `${localStyle.positionY}%`,
+      transform: 'translateY(-50%)',
+      textAlign: localStyle.textAlign,
+      color: localStyle.textColor,
+      fontSize: `${localStyle.fontSize}px`,
+      fontFamily: localStyle.fontFamily,
+      fontWeight: 700,
+      lineHeight: localStyle.lineHeight,
+      letterSpacing: `${localStyle.letterSpacing}px`,
+      padding: `${localStyle.padding}px`,
+    };
+
+    // Sombra
+    if (localStyle.shadowEnabled) {
+      baseStyles.textShadow = `${localStyle.shadowOffsetX}px ${localStyle.shadowOffsetY}px ${localStyle.shadowBlur}px ${localStyle.shadowColor}`;
+    }
+
+    // Glow
+    if (localStyle.glowEnabled) {
+      const glowShadow = `0 0 ${localStyle.glowIntensity}px ${localStyle.glowColor}`;
+      baseStyles.textShadow = baseStyles.textShadow 
+        ? `${baseStyles.textShadow}, ${glowShadow}` 
+        : glowShadow;
+    }
+
+    // Borda do texto (usando text-stroke)
+    if (localStyle.borderEnabled) {
+      baseStyles.WebkitTextStroke = `${localStyle.borderWidth}px ${localStyle.borderColor}`;
+    }
+
+    return baseStyles;
+  };
+
+  // Obter posição da imagem do template
+  const getImageFrame = () => {
+    if (!template) return null;
+    return template.imageFrame;
+  };
+
+  const imageFrame = getImageFrame();
+
   return (
     <div className="space-y-4">
-      {/* Preview usando o SlidePreview unificado */}
-      <div className="rounded-lg overflow-hidden border border-border" style={{ maxHeight: "400px" }}>
-        <SlidePreview
-          text={localStyle.showText ? text : ""}
-          imageUrl={imageUrl}
-          templateId={templateId || "split-top-image"}
-          paletteId={paletteId}
-          logoUrl={logoUrl}
-          className="w-full"
-        />
+      {/* Preview Customizado que responde às edições */}
+      <div 
+        className="relative aspect-[4/5] rounded-lg overflow-hidden border border-border"
+        style={{ 
+          backgroundColor: localStyle.backgroundColor,
+          maxHeight: "400px"
+        }}
+      >
+        {/* Imagem na moldura do template */}
+        {imageUrl && imageFrame && imageFrame.position !== 'none' && (
+          <div
+            style={{
+              position: 'absolute',
+              left: imageFrame.x,
+              top: imageFrame.y,
+              width: imageFrame.width,
+              height: imageFrame.height,
+              borderRadius: imageFrame.borderRadius,
+              overflow: 'hidden'
+            }}
+          >
+            <img
+              src={imageUrl}
+              alt=""
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: imageFrame.objectFit || 'cover'
+              }}
+            />
+          </div>
+        )}
+
+        {/* Overlay */}
+        {localStyle.overlayOpacity > 0 && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: `linear-gradient(to bottom, transparent 40%, rgba(0,0,0,${localStyle.overlayOpacity / 100}) 100%)`
+            }}
+          />
+        )}
+
+        {/* Texto customizado */}
+        {localStyle.showText && text && (
+          <div style={getTextStyles()}>
+            {text}
+          </div>
+        )}
+
+        {/* Logo */}
+        {logoUrl && template?.logoPosition !== 'none' && (
+          <img
+            src={logoUrl}
+            alt="Logo"
+            className="absolute w-[8%] h-auto"
+            style={getLogoPositionStyles(template?.logoPosition || 'bottom-right')}
+          />
+        )}
       </div>
 
       {/* Info do template */}
@@ -314,7 +425,7 @@ export default function SlideComposer({
                   style={{ background: preset.bg }}
                 >
                   <span style={{ color: preset.text }} className="text-xs font-bold">
-                    {preset.name}
+                    Aa
                   </span>
                 </button>
               ))}
@@ -324,15 +435,32 @@ export default function SlideComposer({
           <div className="space-y-2">
             <Label>Cor do Texto</Label>
             <div className="flex gap-2">
-              <Input 
-                type="color" 
+              <input
+                type="color"
                 value={localStyle.textColor}
                 onChange={(e) => updateStyle({ textColor: e.target.value })}
-                className="w-12 h-10 p-1"
+                className="w-10 h-10 rounded cursor-pointer"
               />
-              <Input 
+              <Input
                 value={localStyle.textColor}
                 onChange={(e) => updateStyle({ textColor: e.target.value })}
+                className="flex-1"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Cor de Fundo</Label>
+            <div className="flex gap-2">
+              <input
+                type="color"
+                value={localStyle.backgroundColor}
+                onChange={(e) => updateStyle({ backgroundColor: e.target.value })}
+                className="w-10 h-10 rounded cursor-pointer"
+              />
+              <Input
+                value={localStyle.backgroundColor}
+                onChange={(e) => updateStyle({ backgroundColor: e.target.value })}
                 className="flex-1"
               />
             </div>
@@ -357,25 +485,25 @@ export default function SlideComposer({
           {/* Sombra */}
           <div className="space-y-3 p-3 rounded-lg bg-muted/50">
             <div className="flex items-center justify-between">
-              <Label className="font-medium">Sombra do Texto</Label>
+              <Label>Sombra</Label>
               <Switch 
                 checked={localStyle.shadowEnabled} 
                 onCheckedChange={(v) => updateStyle({ shadowEnabled: v })}
               />
             </div>
             {localStyle.shadowEnabled && (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div className="flex gap-2">
-                  <Input 
-                    type="color" 
+                  <input
+                    type="color"
                     value={localStyle.shadowColor}
                     onChange={(e) => updateStyle({ shadowColor: e.target.value })}
-                    className="w-10 h-8 p-1"
+                    className="w-8 h-8 rounded cursor-pointer"
                   />
                   <div className="flex-1 space-y-1">
-                    <div className="flex justify-between text-xs">
-                      <span>Blur</span>
-                      <span>{localStyle.shadowBlur}px</span>
+                    <div className="flex justify-between">
+                      <span className="text-xs">Blur</span>
+                      <span className="text-xs text-muted-foreground">{localStyle.shadowBlur}px</span>
                     </div>
                     <Slider 
                       value={[localStyle.shadowBlur]} 
@@ -385,34 +513,47 @@ export default function SlideComposer({
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Offset X</Label>
-                    <Slider 
-                      value={[localStyle.shadowOffsetX]} 
-                      onValueChange={([v]) => updateStyle({ shadowOffsetX: v })}
-                      min={-10}
-                      max={10}
-                    />
+              </div>
+            )}
+          </div>
+
+          {/* Glow */}
+          <div className="space-y-3 p-3 rounded-lg bg-muted/50">
+            <div className="flex items-center justify-between">
+              <Label>Glow (Brilho)</Label>
+              <Switch 
+                checked={localStyle.glowEnabled} 
+                onCheckedChange={(v) => updateStyle({ glowEnabled: v })}
+              />
+            </div>
+            {localStyle.glowEnabled && (
+              <div className="flex gap-2">
+                <input
+                  type="color"
+                  value={localStyle.glowColor}
+                  onChange={(e) => updateStyle({ glowColor: e.target.value })}
+                  className="w-8 h-8 rounded cursor-pointer"
+                />
+                <div className="flex-1 space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-xs">Intensidade</span>
+                    <span className="text-xs text-muted-foreground">{localStyle.glowIntensity}px</span>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Offset Y</Label>
-                    <Slider 
-                      value={[localStyle.shadowOffsetY]} 
-                      onValueChange={([v]) => updateStyle({ shadowOffsetY: v })}
-                      min={-10}
-                      max={10}
-                    />
-                  </div>
+                  <Slider 
+                    value={[localStyle.glowIntensity]} 
+                    onValueChange={([v]) => updateStyle({ glowIntensity: v })}
+                    min={0}
+                    max={30}
+                  />
                 </div>
               </div>
             )}
           </div>
 
-          {/* Borda */}
+          {/* Borda do Texto */}
           <div className="space-y-3 p-3 rounded-lg bg-muted/50">
             <div className="flex items-center justify-between">
-              <Label className="font-medium">Borda do Texto</Label>
+              <Label>Contorno do Texto</Label>
               <Switch 
                 checked={localStyle.borderEnabled} 
                 onCheckedChange={(v) => updateStyle({ borderEnabled: v })}
@@ -420,16 +561,16 @@ export default function SlideComposer({
             </div>
             {localStyle.borderEnabled && (
               <div className="flex gap-2">
-                <Input 
-                  type="color" 
+                <input
+                  type="color"
                   value={localStyle.borderColor}
                   onChange={(e) => updateStyle({ borderColor: e.target.value })}
-                  className="w-10 h-8 p-1"
+                  className="w-8 h-8 rounded cursor-pointer"
                 />
                 <div className="flex-1 space-y-1">
-                  <div className="flex justify-between text-xs">
-                    <span>Espessura</span>
-                    <span>{localStyle.borderWidth}px</span>
+                  <div className="flex justify-between">
+                    <span className="text-xs">Espessura</span>
+                    <span className="text-xs text-muted-foreground">{localStyle.borderWidth}px</span>
                   </div>
                   <Slider 
                     value={[localStyle.borderWidth]} 
@@ -442,76 +583,46 @@ export default function SlideComposer({
             )}
           </div>
 
-          {/* Brilho/Glow */}
-          <div className="space-y-3 p-3 rounded-lg bg-muted/50">
-            <div className="flex items-center justify-between">
-              <Label className="font-medium">Brilho (Glow)</Label>
-              <Switch 
-                checked={localStyle.glowEnabled} 
-                onCheckedChange={(v) => updateStyle({ glowEnabled: v })}
-              />
-            </div>
-            {localStyle.glowEnabled && (
-              <div className="flex gap-2">
-                <Input 
-                  type="color" 
-                  value={localStyle.glowColor}
-                  onChange={(e) => updateStyle({ glowColor: e.target.value })}
-                  className="w-10 h-8 p-1"
-                />
-                <div className="flex-1 space-y-1">
-                  <div className="flex justify-between text-xs">
-                    <span>Intensidade</span>
-                    <span>{localStyle.glowIntensity}px</span>
-                  </div>
-                  <Slider 
-                    value={[localStyle.glowIntensity]} 
-                    onValueChange={([v]) => updateStyle({ glowIntensity: v })}
-                    min={5}
-                    max={30}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
           {/* Espaçamento */}
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <div className="flex justify-between">
-                <Label className="text-sm">Espaçamento entre Letras</Label>
-                <span className="text-xs text-muted-foreground">{localStyle.letterSpacing}px</span>
+          <div className="space-y-3 p-3 rounded-lg bg-muted/50">
+            <Label>Espaçamento</Label>
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <div className="flex justify-between">
+                  <Label className="text-sm">Entre Letras</Label>
+                  <span className="text-xs text-muted-foreground">{localStyle.letterSpacing}px</span>
+                </div>
+                <Slider 
+                  value={[localStyle.letterSpacing]} 
+                  onValueChange={([v]) => updateStyle({ letterSpacing: v })}
+                  min={-5}
+                  max={20}
+                />
               </div>
-              <Slider 
-                value={[localStyle.letterSpacing]} 
-                onValueChange={([v]) => updateStyle({ letterSpacing: v })}
-                min={-2}
-                max={10}
-              />
-            </div>
-            <div className="space-y-1">
-              <div className="flex justify-between">
-                <Label className="text-sm">Altura da Linha</Label>
-                <span className="text-xs text-muted-foreground">{localStyle.lineHeight}</span>
+              <div className="space-y-1">
+                <div className="flex justify-between">
+                  <Label className="text-sm">Entre Linhas</Label>
+                  <span className="text-xs text-muted-foreground">{localStyle.lineHeight.toFixed(1)}</span>
+                </div>
+                <Slider 
+                  value={[localStyle.lineHeight * 10]} 
+                  onValueChange={([v]) => updateStyle({ lineHeight: v / 10 })}
+                  min={8}
+                  max={25}
+                />
               </div>
-              <Slider 
-                value={[localStyle.lineHeight * 10]} 
-                onValueChange={([v]) => updateStyle({ lineHeight: v / 10 })}
-                min={10}
-                max={25}
-              />
-            </div>
-            <div className="space-y-1">
-              <div className="flex justify-between">
-                <Label className="text-sm">Padding</Label>
-                <span className="text-xs text-muted-foreground">{localStyle.padding}px</span>
+              <div className="space-y-1">
+                <div className="flex justify-between">
+                  <Label className="text-sm">Padding</Label>
+                  <span className="text-xs text-muted-foreground">{localStyle.padding}px</span>
+                </div>
+                <Slider 
+                  value={[localStyle.padding]} 
+                  onValueChange={([v]) => updateStyle({ padding: v })}
+                  min={0}
+                  max={60}
+                />
               </div>
-              <Slider 
-                value={[localStyle.padding]} 
-                onValueChange={([v]) => updateStyle({ padding: v })}
-                min={0}
-                max={60}
-              />
             </div>
           </div>
         </TabsContent>
@@ -558,4 +669,16 @@ export default function SlideComposer({
       </div>
     </div>
   );
+}
+
+// Função auxiliar para posição do logo
+function getLogoPositionStyles(position: string): React.CSSProperties {
+  const padding = '3%';
+  const styles: Record<string, React.CSSProperties> = {
+    'top-left': { top: padding, left: padding },
+    'top-right': { top: padding, right: padding },
+    'bottom-left': { bottom: padding, left: padding },
+    'bottom-right': { bottom: padding, right: padding }
+  };
+  return styles[position] || styles['bottom-right'];
 }
