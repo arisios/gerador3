@@ -291,6 +291,7 @@
 - [ ] Agrupar controles relacionados
 
 ## Bug Crítico - Preview vs Download (18/12/2024)
-- [x] Preview no editor mostra layout diferente do download - CORRIGIDO: getTextStyles() agora posiciona texto baseado no template
+- [x] Preview no editor mostra layout diferente do download - CORRIGIDO: getTextStyles() agora usa positionY diretamente
 - [x] Download veio sem imagem - RESOLVIDO: imagem está aparecendo corretamente
-- [x] Unificar renderização para que preview e download sejam idênticos - CORRIGIDO
+- [x] Unificar renderização para que preview e download sejam idênticos - CORRIGIDO: preview e download usam positionY
+- [x] Correção baseada no arquivo enviado pelo usuário: preview usa top: ${positionY}%, download usa textY = height * positionY / 100

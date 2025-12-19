@@ -389,44 +389,16 @@ export default function SlideComposer({
   };
 
   // Calcular estilos do texto baseados no localStyle e template
+  // Função getTextStyles - CORRIGIDA para usar positionY diretamente
+  // Isso garante que preview e download sejam IDÊNTICOS
+  // O template define onde a IMAGEM fica, mas o TEXTO é posicionado pelo slider
   const getTextStyles = (): React.CSSProperties => {
-    // Calcular área de texto baseada no template
-    // Se a imagem está no topo, o texto fica embaixo
-    // Se a imagem está embaixo, o texto fica no topo
-    const imageHeight = imageFrame ? parseFloat(String(imageFrame.height).replace('%', '')) : 50;
-    const imageY = imageFrame ? parseFloat(String(imageFrame.y).replace('%', '')) : 0;
-    const imagePosition = imageFrame?.position || 'top';
-    
-    // Calcular posição do texto baseado na posição da imagem
-    let textTop: string;
-    let textBottom: string | undefined;
-    let textHeight: string;
-    
-    if (imagePosition === 'top' || imagePosition === 'full') {
-      // Imagem no topo: texto fica abaixo da imagem
-      textTop = `${imageY + imageHeight}%`;
-      textBottom = '0';
-      textHeight = `${100 - imageY - imageHeight}%`;
-    } else if (imagePosition === 'bottom') {
-      // Imagem embaixo: texto fica acima da imagem
-      textTop = '0';
-      textBottom = undefined;
-      textHeight = `${imageY}%`;
-    } else {
-      // Outros casos: usar posição manual
-      textTop = `${localStyle.positionY}%`;
-      textBottom = undefined;
-      textHeight = 'auto';
-    }
-    
     const baseStyles: React.CSSProperties = {
       position: 'absolute',
       left: `${localStyle.marginLeft}px`,
       right: `${localStyle.marginRight}px`,
-      top: textTop,
-      height: textHeight,
-      display: 'flex',
-      alignItems: 'center',
+      top: `${localStyle.positionY}%`,  // ← Usa positionY diretamente!
+      transform: 'translateY(-50%)',     // ← Centraliza verticalmente no ponto
       textAlign: localStyle.textAlign,
       color: localStyle.textColor,
       fontSize: `${localStyle.fontSize}px`,
