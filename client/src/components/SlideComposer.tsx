@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { designTemplates, colorPalettes } from "../../../shared/designTemplates";
-import html2canvas from "html2canvas";
+// Removido html2canvas - usando Canvas API nativo com proxy
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,6 +44,8 @@ export interface SlideStyle {
   letterSpacing: number;
   lineHeight: number;
   padding: number;
+  marginLeft: number; // Margem esquerda em pixels
+  marginRight: number; // Margem direita em pixels
 }
 
 const DEFAULT_STYLE: SlideStyle = {
@@ -69,6 +71,8 @@ const DEFAULT_STYLE: SlideStyle = {
   letterSpacing: 0,
   lineHeight: 1.3,
   padding: 24,
+  marginLeft: 24,
+  marginRight: 24,
 };
 
 const COLOR_PRESETS = [
@@ -203,50 +207,183 @@ export default function SlideComposer({
     }
   };
 
-  // Download usando html2canvas para capturar exatamente o que está no preview
+  // Download usando Canvas API nativo com proxy (conforme PDF Sistema-Downloads-Completo)
   const handleDownload = async (withText: boolean) => {
-    if (!previewRef.current) {
-      toast.error("Preview não encontrado");
-      return;
-    }
-
     setDownloading(true);
     
-    // Temporariamente ocultar o texto se withText for false
-    const originalShowText = localStyle.showText;
-    if (!withText) {
-      setLocalStyle(prev => ({ ...prev, showText: false }));
-    }
-    
-    // Aguardar um tick para o React atualizar o DOM
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
     try {
-      // Capturar o preview com html2canvas
-      const canvas = await html2canvas(previewRef.current, {
-        scale: 3, // Alta resolução (1080px * 3 = 3240px)
-        useCORS: true, // Permitir imagens de outros domínios
-        allowTaint: true,
-        backgroundColor: localStyle.backgroundColor,
-        logging: false,
-      });
+      // ETAPA 1: Criar canvas com dimensões fixas
+      const canvas = document.createElement('canvas');
+      canvas.width = 1080;
+      canvas.height = 1350;
+      const ctx = canvas.getContext('2d');
       
-      // Converter para PNG e fazer download
-      const dataUrl = canvas.toDataURL('image/png', 1.0);
-      const link = document.createElement('a');
-      link.download = `slide_${slideIndex + 1}${withText ? '_com_texto' : '_sem_texto'}.png`;
-      link.href = dataUrl;
-      link.click();
+      if (!ctx) {
+        throw new Error('Não foi possível criar contexto do canvas');
+      }
       
-      toast.success("Download iniciado!");
+      // ETAPA 2: Preencher fundo com cor de fundo
+      ctx.fillStyle = localStyle.backgroundColor;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // ETAPA 3: Carregar imagem via proxy (se existir)
+      console.log('imageUrl:', imageUrl);
+      if (imageUrl) {
+        const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(imageUrl)}`;
+        console.log('proxyUrl:', proxyUrl);
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => {
+            console.log('Imagem carregada:', img.width, 'x', img.height);
+            resolve();
+          };
+          img.onerror = (e) => {
+            console.error('Erro ao carregar imagem:', e);
+            reject(new Error('Falha ao carregar imagem'));
+          };
+          img.src = proxyUrl;
+        });
+        
+        // Calcular posição da imagem baseado no template
+        const template = designTemplates.find(t => t.id === templateId);
+        console.log('Template:', templateId, template?.name);
+        const frame = template?.imageFrame || { x: 0, y: 0, width: 100, height: 60 };
+        console.log('Frame:', frame);
+        
+        // Função para converter valor (número ou string com %) para pixels
+        const toPixels = (value: string | number, total: number): number => {
+          if (typeof value === 'string') {
+            // Remove % e converte para número
+            const num = parseFloat(value.replace('%', ''));
+            return (num / 100) * total;
+          }
+          return (value / 100) * total;
+        };
+        
+        const frameX = toPixels(frame.x, canvas.width);
+        const frameY = toPixels(frame.y, canvas.height);
+        const frameW = toPixels(frame.width, canvas.width);
+        const frameH = toPixels(frame.height, canvas.height);
+        console.log('Frame pixels:', { frameX, frameY, frameW, frameH });
+        
+        // Desenhar imagem com cover (manter proporção)
+        const imgRatio = img.width / img.height;
+        const frameRatio = frameW / frameH;
+        let drawW, drawH, drawX, drawY;
+        
+        if (imgRatio > frameRatio) {
+          drawH = frameH;
+          drawW = frameH * imgRatio;
+          drawX = frameX - (drawW - frameW) / 2;
+          drawY = frameY;
+        } else {
+          drawW = frameW;
+          drawH = frameW / imgRatio;
+          drawX = frameX;
+          drawY = frameY - (drawH - frameH) / 2;
+        }
+        
+        // Clip para manter imagem dentro do frame
+        ctx.save();
+        ctx.beginPath();
+        const borderRadius = template?.imageFrame?.borderRadius ? (Number(template.imageFrame.borderRadius) / 100) * Math.min(frameW, frameH) : 0;
+        ctx.roundRect(frameX, frameY, frameW, frameH, borderRadius);
+        ctx.clip();
+        ctx.drawImage(img, drawX, drawY, drawW, drawH);
+        ctx.restore();
+      }
+      
+      // ETAPA 4: Adicionar overlay/gradiente se configurado
+      if (localStyle.overlayOpacity > 0) {
+        ctx.fillStyle = `rgba(0, 0, 0, ${localStyle.overlayOpacity / 100})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+      
+      // ETAPA 5: Desenhar texto (se withText for true)
+      if (withText && localStyle.showText && text) {
+        // Configurar fonte
+        ctx.fillStyle = localStyle.textColor;
+        ctx.font = `bold ${localStyle.fontSize * 2}px ${localStyle.fontFamily}`;
+        ctx.textAlign = localStyle.textAlign;
+        ctx.textBaseline = 'middle';
+        
+        // Configurar sombra
+        if (localStyle.shadowEnabled) {
+          ctx.shadowColor = localStyle.shadowColor;
+          ctx.shadowBlur = localStyle.shadowBlur * 2;
+          ctx.shadowOffsetX = localStyle.shadowOffsetX * 2;
+          ctx.shadowOffsetY = localStyle.shadowOffsetY * 2;
+        }
+        
+        // Calcular área de texto com margens
+        const textAreaLeft = localStyle.marginLeft * 2;
+        const textAreaRight = canvas.width - (localStyle.marginRight * 2);
+        const maxWidth = textAreaRight - textAreaLeft;
+        
+        // Quebrar texto em linhas
+        const words = text.split(' ');
+        const lines: string[] = [];
+        let currentLine = words[0] || '';
+        
+        for (let i = 1; i < words.length; i++) {
+          const testLine = currentLine + ' ' + words[i];
+          const metrics = ctx.measureText(testLine);
+          if (metrics.width > maxWidth) {
+            lines.push(currentLine);
+            currentLine = words[i];
+          } else {
+            currentLine = testLine;
+          }
+        }
+        if (currentLine) lines.push(currentLine);
+        
+        // Calcular posição Y baseada no positionY
+        const lineHeight = localStyle.fontSize * 2 * localStyle.lineHeight;
+        const totalTextHeight = lines.length * lineHeight;
+        const startY = (localStyle.positionY / 100) * canvas.height;
+        
+        // Calcular X baseado no alinhamento e margens
+        let textX: number;
+        if (localStyle.textAlign === 'left') {
+          textX = textAreaLeft;
+        } else if (localStyle.textAlign === 'right') {
+          textX = textAreaRight;
+        } else {
+          textX = textAreaLeft + maxWidth / 2;
+        }
+        
+        // Desenhar cada linha
+        lines.forEach((line, index) => {
+          const y = startY + (index - (lines.length - 1) / 2) * lineHeight;
+          ctx.fillText(line, textX, y);
+        });
+        
+        // Resetar sombra
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+      }
+      
+      // ETAPA 6: Converter para PNG e fazer download
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `slide_${slideIndex + 1}${withText ? '_com_texto' : '_sem_texto'}.png`;
+          a.click();
+          URL.revokeObjectURL(url);
+          toast.success("Download iniciado!");
+        }
+      }, 'image/png');
+      
     } catch (error) {
       console.error("Erro no download:", error);
       toast.error("Erro ao baixar slide");
     } finally {
-      // Restaurar o estado do texto
-      if (!withText) {
-        setLocalStyle(prev => ({ ...prev, showText: originalShowText }));
-      }
       setDownloading(false);
     }
   };
@@ -255,8 +392,8 @@ export default function SlideComposer({
   const getTextStyles = (): React.CSSProperties => {
     const baseStyles: React.CSSProperties = {
       position: 'absolute',
-      left: localStyle.padding,
-      right: localStyle.padding,
+      left: `${localStyle.marginLeft}px`,
+      right: `${localStyle.marginRight}px`,
       top: `${localStyle.positionY}%`,
       transform: 'translateY(-50%)',
       textAlign: localStyle.textAlign,
@@ -266,7 +403,8 @@ export default function SlideComposer({
       fontWeight: 700,
       lineHeight: localStyle.lineHeight,
       letterSpacing: `${localStyle.letterSpacing}px`,
-      padding: `${localStyle.padding}px`,
+      paddingTop: `${localStyle.padding}px`,
+      paddingBottom: `${localStyle.padding}px`,
     };
 
     // Sombra
@@ -299,18 +437,18 @@ export default function SlideComposer({
   const imageFrame = getImageFrame();
 
   return (
-    <div className="space-y-4">
-      {/* Preview Customizado que responde às edições */}
-      <div 
-        ref={previewRef}
-        className="relative aspect-[4/5] rounded-lg overflow-hidden"
-        style={{ 
-          backgroundColor: localStyle.backgroundColor,
-          width: "100%",
-          maxWidth: "360px",
-          margin: "0 auto"
-        }}
-      >
+    <div className="flex flex-col h-full">
+      {/* Preview Fixo no Topo - Menor e sempre visível */}
+      <div className="sticky top-0 z-10 bg-background pb-2 border-b border-border mb-2">
+        <div 
+          ref={previewRef}
+          className="relative aspect-[4/5] rounded-lg overflow-hidden mx-auto"
+          style={{ 
+            backgroundColor: localStyle.backgroundColor,
+            width: "100%",
+            maxWidth: "200px"
+          }}
+        >
         {/* Imagem na moldura do template */}
         {imageUrl && imageFrame && imageFrame.position !== 'none' && (
           <div
@@ -363,7 +501,11 @@ export default function SlideComposer({
             style={getLogoPositionStyles(template?.logoPosition || 'bottom-right')}
           />
         )}
+        </div>
       </div>
+
+      {/* Área de Controles com Scroll */}
+      <div className="flex-1 overflow-y-auto space-y-3 px-1">
 
       {/* Info do template */}
       <div className="flex items-center justify-between text-sm text-muted-foreground">
@@ -462,6 +604,34 @@ export default function SlideComposer({
               min={16}
               max={72}
               step={1}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Margem Esquerda</Label>
+              <span className="text-xs text-muted-foreground">{localStyle.marginLeft}px</span>
+            </div>
+            <Slider 
+              value={[localStyle.marginLeft]} 
+              onValueChange={([v]) => updateStyle({ marginLeft: v })}
+              min={0}
+              max={200}
+              step={4}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Margem Direita</Label>
+              <span className="text-xs text-muted-foreground">{localStyle.marginRight}px</span>
+            </div>
+            <Slider 
+              value={[localStyle.marginRight]} 
+              onValueChange={([v]) => updateStyle({ marginRight: v })}
+              min={0}
+              max={200}
+              step={4}
             />
           </div>
         </TabsContent>
@@ -682,7 +852,10 @@ export default function SlideComposer({
         </TabsContent>
       </Tabs>
 
-      {/* Ações */}
+      </div>
+
+      {/* Ações - Fixas na parte inferior */}
+      <div className="sticky bottom-0 bg-background pt-2 border-t border-border space-y-2">
       <div className="flex gap-2">
         <Button variant="outline" size="sm" onClick={saveAsDefault} className="flex-1">
           <Save className="w-3 h-3 mr-1" />
@@ -737,6 +910,7 @@ export default function SlideComposer({
           )}
           Sem Texto
         </Button>
+      </div>
       </div>
     </div>
   );

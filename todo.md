@@ -271,3 +271,21 @@
 - [x] Indicador de "mudanças não salvas" com asterisco - IMPLEMENTADO
 - [x] Edições persistem ao navegar entre slides - TESTADO E FUNCIONANDO
 - [ ] Download em lote usa estilos salvos de cada slide
+
+## Bugs e Melhorias Reportadas (18/12/2024)
+- [x] Download não funcionava - CORRIGIDO: usando Canvas API nativo com proxy
+- [x] Controles de margem esquerda/direita adicionados
+- [x] Layout mais compacto com preview fixo no topo
+- [x] Botões de ação fixos na parte inferior
+
+## Bugs e Melhorias Reportadas (18/12/2024)
+- [ ] Download do SlideComposer não está funcionando
+- [ ] Adicionar controle de margem esquerda no SlideComposer
+- [ ] Adicionar controle de margem direita no SlideComposer
+- [ ] Controle de padding atual não é suficiente para posicionar texto com precisão
+
+## Melhorias de Layout do SlideComposer (18/12/2024)
+- [ ] Compactar controles para ocupar menos espaço
+- [ ] Preview fixo ou lado a lado para ver alterações ao vivo
+- [ ] Sliders e inputs mais compactos
+- [ ] Agrupar controles relacionados

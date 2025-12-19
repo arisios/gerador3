@@ -36,6 +36,8 @@ const DEFAULT_STYLE: SlideStyle = {
   letterSpacing: 0,
   lineHeight: 1.3,
   padding: 24,
+  marginLeft: 24,
+  marginRight: 24,
 };
 
 export default function InfluencerContentEdit() {
