@@ -388,14 +388,45 @@ export default function SlideComposer({
     }
   };
 
-  // Calcular estilos do texto baseados no localStyle
+  // Calcular estilos do texto baseados no localStyle e template
   const getTextStyles = (): React.CSSProperties => {
+    // Calcular área de texto baseada no template
+    // Se a imagem está no topo, o texto fica embaixo
+    // Se a imagem está embaixo, o texto fica no topo
+    const imageHeight = imageFrame ? parseFloat(String(imageFrame.height).replace('%', '')) : 50;
+    const imageY = imageFrame ? parseFloat(String(imageFrame.y).replace('%', '')) : 0;
+    const imagePosition = imageFrame?.position || 'top';
+    
+    // Calcular posição do texto baseado na posição da imagem
+    let textTop: string;
+    let textBottom: string | undefined;
+    let textHeight: string;
+    
+    if (imagePosition === 'top' || imagePosition === 'full') {
+      // Imagem no topo: texto fica abaixo da imagem
+      textTop = `${imageY + imageHeight}%`;
+      textBottom = '0';
+      textHeight = `${100 - imageY - imageHeight}%`;
+    } else if (imagePosition === 'bottom') {
+      // Imagem embaixo: texto fica acima da imagem
+      textTop = '0';
+      textBottom = undefined;
+      textHeight = `${imageY}%`;
+    } else {
+      // Outros casos: usar posição manual
+      textTop = `${localStyle.positionY}%`;
+      textBottom = undefined;
+      textHeight = 'auto';
+    }
+    
     const baseStyles: React.CSSProperties = {
       position: 'absolute',
       left: `${localStyle.marginLeft}px`,
       right: `${localStyle.marginRight}px`,
-      top: `${localStyle.positionY}%`,
-      transform: 'translateY(-50%)',
+      top: textTop,
+      height: textHeight,
+      display: 'flex',
+      alignItems: 'center',
       textAlign: localStyle.textAlign,
       color: localStyle.textColor,
       fontSize: `${localStyle.fontSize}px`,
@@ -403,8 +434,7 @@ export default function SlideComposer({
       fontWeight: 700,
       lineHeight: localStyle.lineHeight,
       letterSpacing: `${localStyle.letterSpacing}px`,
-      paddingTop: `${localStyle.padding}px`,
-      paddingBottom: `${localStyle.padding}px`,
+      padding: `${localStyle.padding}px`,
     };
 
     // Sombra

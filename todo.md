@@ -289,3 +289,8 @@
 - [ ] Preview fixo ou lado a lado para ver alterações ao vivo
 - [ ] Sliders e inputs mais compactos
 - [ ] Agrupar controles relacionados
+
+## Bug Crítico - Preview vs Download (18/12/2024)
+- [x] Preview no editor mostra layout diferente do download - CORRIGIDO: getTextStyles() agora posiciona texto baseado no template
+- [x] Download veio sem imagem - RESOLVIDO: imagem está aparecendo corretamente
+- [x] Unificar renderização para que preview e download sejam idênticos - CORRIGIDO
