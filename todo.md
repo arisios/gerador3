@@ -241,3 +241,12 @@
 
 ## Bug SlideComposer (18/12/2024)
 - [x] SlideComposer não respeita o layout do template selecionado - CORRIGIDO: agora usa imageFrame do template
+
+## Unificação de Renderização (18/12/2024)
+- [x] Criar função downloadSlide unificada no SlideRenderer
+- [x] Usar proxy de imagens para evitar erro CORS no download
+- [x] Corrigir posicionamento de texto (não cortar no topo)
+- [x] Aumentar padding do template Declaração Bold (32px → 48px)
+- [x] Garantir que texto nunca comece acima do padding mínimo
+- [x] Download do SlideComposer usa função unificada
+- [x] Preview, Editor Visual e Download mostram a mesma coisa

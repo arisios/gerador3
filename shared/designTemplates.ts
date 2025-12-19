@@ -587,7 +587,7 @@ export const designTemplates: DesignTemplate[] = [
       fontSize: '3xl',
       fontWeight: 'black',
       maxWidth: '90%',
-      padding: '32px',
+      padding: '48px',
       textShadow: false,
       lineHeight: 'tight'
     },

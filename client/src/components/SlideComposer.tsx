@@ -1,16 +1,17 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { designTemplates, colorPalettes } from "../../../shared/designTemplates";
+import { SlidePreview, downloadSlide } from "./SlideRenderer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { 
   Type, Palette, Settings2, AlignLeft, AlignCenter, AlignRight, 
-  ChevronUp, ChevronDown, Save, RotateCcw, Download
+  ChevronUp, ChevronDown, Save, RotateCcw, Download, Loader2
 } from "lucide-react";
+import { toast } from "sonner";
 
 export interface SlideStyle {
   // Básico
@@ -98,6 +99,8 @@ interface SlideComposerProps {
   style: SlideStyle;
   templateId?: string;
   paletteId?: string;
+  logoUrl?: string;
+  slideIndex?: number;
   onStyleChange: (style: SlideStyle) => void;
   onTextChange: (text: string) => void;
   onDownload: (withText: boolean) => void;
@@ -109,42 +112,18 @@ export default function SlideComposer({
   style,
   templateId,
   paletteId,
+  logoUrl,
+  slideIndex = 0,
   onStyleChange,
   onTextChange,
   onDownload,
 }: SlideComposerProps) {
   // Obter template e paleta
-  const template = templateId ? designTemplates.find(t => t.id === templateId) : null;
+  const template = templateId ? designTemplates.find(t => t.id === templateId) : designTemplates[0];
   const palette = paletteId ? colorPalettes.find(p => p.id === paletteId) : null;
   
-  // Calcular posição da imagem baseado no template
-  const getImageStyle = (): React.CSSProperties => {
-    if (!template || template.imageFrame.position === 'none') {
-      return {
-        position: 'absolute',
-        inset: 0,
-        width: '100%',
-        height: '100%',
-        objectFit: 'cover' as const,
-      };
-    }
-    
-    const frame = template.imageFrame;
-    return {
-      position: 'absolute',
-      left: frame.x,
-      top: frame.y,
-      width: frame.width,
-      height: frame.height,
-      objectFit: 'cover' as const,
-      borderRadius: frame.borderRadius || '0',
-    };
-  };
-  
   const [localStyle, setLocalStyle] = useState<SlideStyle>(style);
-  
-  // Cor de fundo do template/paleta
-  const backgroundColor = palette?.colors.background || template?.colors.background || localStyle.backgroundColor;
+  const [downloading, setDownloading] = useState(false);
   const [activeTab, setActiveTab] = useState("basico");
 
   useEffect(() => {
@@ -159,6 +138,7 @@ export default function SlideComposer({
 
   const saveAsDefault = () => {
     localStorage.setItem("gerador3_default_style", JSON.stringify(localStyle));
+    toast.success("Estilo salvo como padrão!");
   };
 
   const loadDefault = () => {
@@ -167,72 +147,63 @@ export default function SlideComposer({
       const parsed = JSON.parse(saved);
       setLocalStyle(parsed);
       onStyleChange(parsed);
+      toast.success("Estilo padrão carregado!");
+    } else {
+      toast.info("Nenhum estilo padrão salvo.");
     }
   };
 
   const resetStyle = () => {
     setLocalStyle(DEFAULT_STYLE);
     onStyleChange(DEFAULT_STYLE);
+    toast.success("Estilo resetado!");
   };
 
-  // Gerar CSS para preview
-  const getTextStyle = (): React.CSSProperties => {
-    const shadows: string[] = [];
-    
-    if (localStyle.shadowEnabled) {
-      shadows.push(`${localStyle.shadowOffsetX}px ${localStyle.shadowOffsetY}px ${localStyle.shadowBlur}px ${localStyle.shadowColor}`);
-    }
-    
-    if (localStyle.glowEnabled) {
-      shadows.push(`0 0 ${localStyle.glowIntensity}px ${localStyle.glowColor}`);
-      shadows.push(`0 0 ${localStyle.glowIntensity * 2}px ${localStyle.glowColor}`);
+  // Download usando a função unificada do SlideRenderer
+  const handleDownload = async (withText: boolean) => {
+    if (!templateId) {
+      toast.error("Template não selecionado");
+      return;
     }
 
-    return {
-      color: localStyle.textColor,
-      fontSize: `${localStyle.fontSize}px`,
-      fontFamily: localStyle.fontFamily,
-      textAlign: localStyle.textAlign,
-      textShadow: shadows.length > 0 ? shadows.join(", ") : "none",
-      letterSpacing: `${localStyle.letterSpacing}px`,
-      lineHeight: localStyle.lineHeight,
-      padding: `${localStyle.padding}px`,
-      WebkitTextStroke: localStyle.borderEnabled ? `${localStyle.borderWidth}px ${localStyle.borderColor}` : "none",
-    };
+    setDownloading(true);
+    try {
+      await downloadSlide({
+        text: text,
+        imageUrl: imageUrl,
+        templateId: templateId,
+        paletteId: paletteId,
+        logoUrl: logoUrl,
+        showText: withText,
+        filename: `slide_${slideIndex + 1}${withText ? '_com_texto' : '_sem_texto'}.png`
+      });
+      toast.success("Download iniciado!");
+    } catch (error) {
+      console.error("Erro no download:", error);
+      toast.error("Erro ao baixar slide");
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
     <div className="space-y-4">
-      {/* Preview */}
-      <div 
-        className="relative aspect-[4/5] rounded-lg overflow-hidden"
-        style={{ maxHeight: "400px", backgroundColor }}
-      >
-        {imageUrl && (
-          <img 
-            src={imageUrl} 
-            alt="" 
-            style={getImageStyle()}
-          />
-        )}
-        <div 
-          className="absolute inset-0"
-          style={{ 
-            background: `linear-gradient(to top, ${backgroundColor}${Math.round(localStyle.overlayOpacity * 2.55).toString(16).padStart(2, '0')} 0%, transparent 50%)` 
-          }}
+      {/* Preview usando o SlidePreview unificado */}
+      <div className="rounded-lg overflow-hidden border border-border" style={{ maxHeight: "400px" }}>
+        <SlidePreview
+          text={localStyle.showText ? text : ""}
+          imageUrl={imageUrl}
+          templateId={templateId || "split-top-image"}
+          paletteId={paletteId}
+          logoUrl={logoUrl}
+          className="w-full"
         />
-        {localStyle.showText && (
-          <div 
-            className="absolute left-0 right-0 font-bold"
-            style={{ 
-              ...getTextStyle(),
-              top: `${localStyle.positionY}%`,
-              transform: "translateY(-50%)",
-            }}
-          >
-            {text || "Seu texto aqui"}
-          </div>
-        )}
+      </div>
+
+      {/* Info do template */}
+      <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <span>Template: {template?.name || 'Padrão'}</span>
+        <span>Paleta: {palette?.name || 'Padrão'}</span>
       </div>
 
       {/* Tabs de Edição */}
@@ -328,22 +299,6 @@ export default function SlideComposer({
               step={1}
             />
           </div>
-
-          <div className="space-y-2">
-            <Label>Fonte</Label>
-            <Select value={localStyle.fontFamily} onValueChange={(v) => updateStyle({ fontFamily: v })}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {FONT_OPTIONS.map((font) => (
-                  <SelectItem key={font} value={font} style={{ fontFamily: font }}>
-                    {font}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
         </TabsContent>
 
         {/* Aba Cores */}
@@ -352,20 +307,16 @@ export default function SlideComposer({
             <Label>Presets de Cores</Label>
             <div className="grid grid-cols-4 gap-2">
               {COLOR_PRESETS.map((preset) => (
-                <Button
+                <button
                   key={preset.name}
-                  variant="outline"
-                  size="sm"
-                  className="h-10 p-0 overflow-hidden"
                   onClick={() => updateStyle({ textColor: preset.text, backgroundColor: preset.bg })}
+                  className="p-2 rounded-lg border hover:border-primary transition-colors"
+                  style={{ background: preset.bg }}
                 >
-                  <div 
-                    className="w-full h-full flex items-center justify-center text-xs font-bold"
-                    style={{ backgroundColor: preset.bg, color: preset.text }}
-                  >
-                    Aa
-                  </div>
-                </Button>
+                  <span style={{ color: preset.text }} className="text-xs font-bold">
+                    {preset.name}
+                  </span>
+                </button>
               ))}
             </div>
           </div>
@@ -377,29 +328,12 @@ export default function SlideComposer({
                 type="color" 
                 value={localStyle.textColor}
                 onChange={(e) => updateStyle({ textColor: e.target.value })}
-                className="w-12 h-10 p-1 cursor-pointer"
+                className="w-12 h-10 p-1"
               />
               <Input 
                 value={localStyle.textColor}
                 onChange={(e) => updateStyle({ textColor: e.target.value })}
-                className="flex-1 font-mono"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Cor do Fundo/Overlay</Label>
-            <div className="flex gap-2">
-              <Input 
-                type="color" 
-                value={localStyle.backgroundColor}
-                onChange={(e) => updateStyle({ backgroundColor: e.target.value })}
-                className="w-12 h-10 p-1 cursor-pointer"
-              />
-              <Input 
-                value={localStyle.backgroundColor}
-                onChange={(e) => updateStyle({ backgroundColor: e.target.value })}
-                className="flex-1 font-mono"
+                className="flex-1"
               />
             </div>
           </div>
@@ -414,7 +348,6 @@ export default function SlideComposer({
               onValueChange={([v]) => updateStyle({ overlayOpacity: v })}
               min={0}
               max={100}
-              step={1}
             />
           </div>
         </TabsContent>
@@ -424,7 +357,7 @@ export default function SlideComposer({
           {/* Sombra */}
           <div className="space-y-3 p-3 rounded-lg bg-muted/50">
             <div className="flex items-center justify-between">
-              <Label className="font-medium">Sombra</Label>
+              <Label className="font-medium">Sombra do Texto</Label>
               <Switch 
                 checked={localStyle.shadowEnabled} 
                 onCheckedChange={(v) => updateStyle({ shadowEnabled: v })}
@@ -597,12 +530,29 @@ export default function SlideComposer({
       </div>
 
       <div className="flex gap-2">
-        <Button onClick={() => onDownload(true)} className="flex-1">
-          <Download className="w-4 h-4 mr-2" />
+        <Button 
+          onClick={() => handleDownload(true)} 
+          className="flex-1"
+          disabled={downloading}
+        >
+          {downloading ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <Download className="w-4 h-4 mr-2" />
+          )}
           Com Texto
         </Button>
-        <Button variant="outline" onClick={() => onDownload(false)} className="flex-1">
-          <Download className="w-4 h-4 mr-2" />
+        <Button 
+          variant="outline" 
+          onClick={() => handleDownload(false)} 
+          className="flex-1"
+          disabled={downloading}
+        >
+          {downloading ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <Download className="w-4 h-4 mr-2" />
+          )}
           Sem Texto
         </Button>
       </div>

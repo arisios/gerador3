@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { trpc } from "@/lib/trpc";
-import { SlideRenderer, SlidePreview, TemplateSelector } from "@/components/SlideRenderer";
+import { SlideRenderer, SlidePreview, TemplateSelector, downloadSlide } from "@/components/SlideRenderer";
 import SlideComposer, { SlideStyle } from "@/components/SlideComposer";
 import { ImageLightbox } from "@/components/ImageLightbox";
 import { designTemplates, colorPalettes, type DesignTemplate } from "../../../shared/designTemplates";
@@ -546,6 +546,8 @@ export default function ContentEdit() {
             imageUrl={currentSlide.imageUrl || undefined}
             templateId={selectedTemplateId}
             paletteId={selectedPaletteId}
+            logoUrl={project?.logoUrl || undefined}
+            slideIndex={currentSlideIndex}
             style={(currentSlide as any).style || {
               showText: true,
               textAlign: "center",
@@ -673,7 +675,7 @@ export default function ContentEdit() {
                         Template
                       </Button>
                     </SheetTrigger>
-                <SheetContent side="bottom" className="h-[80vh] overflow-y-auto">
+                    <SheetContent side="bottom" className="h-[80vh] overflow-y-auto">
                   <SheetHeader>
                     <SheetTitle>Template Visual</SheetTitle>
                   </SheetHeader>
@@ -705,9 +707,9 @@ export default function ContentEdit() {
                       />
                     </div>
                   </div>
-                </SheetContent>
+                    </SheetContent>
                   </Sheet>
-                </div>
+              </div>
             </div>
             
             {/* Preview rápido do template */}

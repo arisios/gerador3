@@ -1,6 +1,111 @@
 import { useRef, useEffect, useState } from "react";
 import { designTemplates, colorPalettes, type DesignTemplate } from "../../../shared/designTemplates";
 
+// === FUNÇÃO UTILITÁRIA PARA PROXY DE IMAGENS ===
+function getProxyUrl(url: string): string {
+  // Se já é uma URL de proxy ou data URL, retorna como está
+  if (url.startsWith('data:') || url.includes('/api/image-proxy')) {
+    return url;
+  }
+  // Usa o proxy para evitar CORS
+  return `/api/image-proxy?url=${encodeURIComponent(url)}`;
+}
+
+// === INTERFACE PARA RENDERIZAÇÃO ===
+export interface RenderSlideOptions {
+  text: string;
+  imageUrl?: string;
+  templateId: string;
+  paletteId?: string;
+  customColors?: {
+    background?: string;
+    text?: string;
+    accent?: string;
+  };
+  logoUrl?: string;
+  width?: number;
+  height?: number;
+  showText?: boolean;
+}
+
+// === FUNÇÃO UNIFICADA DE RENDERIZAÇÃO (EXPORTÁVEL) ===
+export async function renderSlideToCanvas(
+  canvas: HTMLCanvasElement,
+  options: RenderSlideOptions
+): Promise<string> {
+  const {
+    text,
+    imageUrl,
+    templateId,
+    paletteId,
+    customColors,
+    logoUrl,
+    width = 1080,
+    height = 1080,
+    showText = true
+  } = options;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Could not get canvas context');
+
+  const template = designTemplates.find(t => t.id === templateId) || designTemplates[0];
+  const palette = paletteId ? colorPalettes.find(p => p.id === paletteId) : null;
+
+  // Cores finais (customColors > palette > template default)
+  const colors = {
+    background: customColors?.background || palette?.colors.background || template.colors.background,
+    text: customColors?.text || palette?.colors.text || template.colors.text,
+    accent: customColors?.accent || palette?.colors.accent || template.colors.accent,
+  };
+
+  canvas.width = width;
+  canvas.height = height;
+
+  // Limpar canvas
+  ctx.clearRect(0, 0, width, height);
+
+  // 1. Desenhar fundo
+  await drawBackground(ctx, colors.background, width, height);
+
+  // 2. Desenhar imagem na moldura/quadro (usando proxy)
+  if (imageUrl && template.imageFrame.position !== 'none') {
+    const proxyUrl = getProxyUrl(imageUrl);
+    await drawImageInFrame(ctx, proxyUrl, template.imageFrame, width, height);
+  }
+
+  // 3. Desenhar overlay se existir
+  if (template.overlay && template.overlay.type !== 'none') {
+    drawOverlay(ctx, template.overlay, width, height);
+  }
+
+  // 4. Desenhar texto com estilo do template (se showText for true)
+  if (showText) {
+    drawText(ctx, text, template.textStyle, colors, width, height);
+  }
+
+  // 5. Desenhar logo se houver (usando proxy)
+  if (logoUrl && template.logoPosition !== 'none') {
+    const proxyLogoUrl = getProxyUrl(logoUrl);
+    await drawLogo(ctx, proxyLogoUrl, template.logoPosition, width, height);
+  }
+
+  return canvas.toDataURL('image/png');
+}
+
+// === FUNÇÃO PARA DOWNLOAD DIRETO ===
+export async function downloadSlide(
+  options: RenderSlideOptions & { filename?: string }
+): Promise<void> {
+  const canvas = document.createElement('canvas');
+  const dataUrl = await renderSlideToCanvas(canvas, options);
+  
+  const link = document.createElement('a');
+  link.download = options.filename || 'slide.png';
+  link.href = dataUrl;
+  link.click();
+}
+
+// === COMPONENTE SLIDE RENDERER (CANVAS) ===
 interface SlideRendererProps {
   text: string;
   imageUrl?: string;
@@ -14,6 +119,7 @@ interface SlideRendererProps {
   logoUrl?: string;
   width?: number;
   height?: number;
+  showText?: boolean;
   onRender?: (dataUrl: string) => void;
   className?: string;
 }
@@ -27,68 +133,43 @@ export function SlideRenderer({
   logoUrl,
   width = 1080,
   height = 1080,
+  showText = true,
   onRender,
   className = ""
 }: SlideRendererProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [rendered, setRendered] = useState(false);
-
-  const template = designTemplates.find(t => t.id === templateId) || designTemplates[0];
-  const palette = paletteId ? colorPalettes.find(p => p.id === paletteId) : null;
-
-  // Cores finais (customColors > palette > template default)
-  const colors = {
-    background: customColors?.background || palette?.colors.background || template.colors.background,
-    text: customColors?.text || palette?.colors.text || template.colors.text,
-    accent: customColors?.accent || palette?.colors.accent || template.colors.accent,
-  };
+  const [, setRendered] = useState(false);
 
   useEffect(() => {
-    renderSlide();
-  }, [text, imageUrl, templateId, paletteId, customColors, logoUrl]);
+    const render = async () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
 
-  const renderSlide = async () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+      try {
+        const dataUrl = await renderSlideToCanvas(canvas, {
+          text,
+          imageUrl,
+          templateId,
+          paletteId,
+          customColors,
+          logoUrl,
+          width,
+          height,
+          showText
+        });
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+        setRendered(true);
 
-    canvas.width = width;
-    canvas.height = height;
+        if (onRender) {
+          onRender(dataUrl);
+        }
+      } catch (error) {
+        console.error('Error rendering slide:', error);
+      }
+    };
 
-    // Limpar canvas
-    ctx.clearRect(0, 0, width, height);
-
-    // 1. Desenhar fundo
-    await drawBackground(ctx, colors.background, width, height);
-
-    // 2. Desenhar imagem na moldura/quadro
-    if (imageUrl && template.imageFrame.position !== 'none') {
-      await drawImageInFrame(ctx, imageUrl, template.imageFrame, width, height);
-    }
-
-    // 3. Desenhar overlay se existir
-    if (template.overlay && template.overlay.type !== 'none') {
-      drawOverlay(ctx, template.overlay, width, height);
-    }
-
-    // 4. Desenhar texto com estilo do template
-    drawText(ctx, text, template.textStyle, colors, width, height);
-
-    // 5. Desenhar logo se houver
-    if (logoUrl && template.logoPosition !== 'none') {
-      await drawLogo(ctx, logoUrl, template.logoPosition, width, height);
-    }
-
-    setRendered(true);
-
-    // Callback com dataUrl
-    if (onRender) {
-      const dataUrl = canvas.toDataURL('image/png');
-      onRender(dataUrl);
-    }
-  };
+    render();
+  }, [text, imageUrl, templateId, paletteId, customColors, logoUrl, width, height, showText, onRender]);
 
   return (
     <canvas
@@ -99,7 +180,7 @@ export function SlideRenderer({
   );
 }
 
-// === FUNÇÕES AUXILIARES ===
+// === FUNÇÕES AUXILIARES DE DESENHO ===
 
 async function drawBackground(ctx: CanvasRenderingContext2D, color: string, width: number, height: number) {
   if (color.startsWith('linear-gradient')) {
@@ -125,6 +206,8 @@ async function drawBackground(ctx: CanvasRenderingContext2D, color: string, widt
       });
       
       ctx.fillStyle = gradient;
+    } else {
+      ctx.fillStyle = '#0a0a0a';
     }
   } else {
     ctx.fillStyle = color;
@@ -183,7 +266,10 @@ async function drawImageInFrame(
       
       resolve();
     };
-    img.onerror = () => resolve();
+    img.onerror = () => {
+      console.error('Failed to load image:', url);
+      resolve();
+    };
     img.src = url;
   });
 }
@@ -303,6 +389,11 @@ function drawText(
     startY = y - totalHeight;
   }
   
+  // Garantir que o texto não comece acima do padding mínimo
+  if (startY < padding) {
+    startY = padding;
+  }
+  
   // Desenhar cada linha
   lines.forEach((line, i) => {
     const lineY = startY + i * fontSize * lineHeight;
@@ -313,7 +404,6 @@ function drawText(
     
     if (textStyle.alignment === 'center') {
       // Para alinhamento central, desenhar linha inteira
-      const cleanLine = line.replace(/\*\*/g, '');
       
       // Verificar se tem palavras destacadas
       if (parts.length > 1) {
@@ -342,6 +432,7 @@ function drawText(
         
         ctx.textAlign = textStyle.alignment as CanvasTextAlign;
       } else {
+        const cleanLine = line.replace(/\*\*/g, '');
         ctx.fillText(cleanLine, x, lineY);
       }
     } else {
@@ -475,25 +566,21 @@ function getTextPosition(
 
 function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
   // Remover marcadores de negrito para cálculo de largura
-  const cleanText = text.replace(/\*\*/g, '');
   const words = text.split(' ');
-  const cleanWords = cleanText.split(' ');
   const lines: string[] = [];
   let currentLine = '';
-  let currentCleanLine = '';
   
-  words.forEach((word, i) => {
-    const cleanWord = cleanWords[i];
-    const testCleanLine = currentCleanLine + (currentCleanLine ? ' ' : '') + cleanWord;
+  words.forEach((word) => {
+    const cleanWord = word.replace(/\*\*/g, '');
+    const testLine = currentLine + (currentLine ? ' ' : '') + word;
+    const testCleanLine = testLine.replace(/\*\*/g, '');
     const metrics = ctx.measureText(testCleanLine);
     
     if (metrics.width > maxWidth && currentLine) {
       lines.push(currentLine);
       currentLine = word;
-      currentCleanLine = cleanWord;
     } else {
-      currentLine += (currentLine ? ' ' : '') + word;
-      currentCleanLine = testCleanLine;
+      currentLine = testLine;
     }
   });
   
